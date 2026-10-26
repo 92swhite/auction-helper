@@ -1,0 +1,34 @@
+{
+  "name": "auction-helper",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config frontend/vite.config.ts",
+    "dev:browser": "cargo build -p auction-core && vite --config frontend/vite.config.ts --mode browser",
+    "build": "tsc --noEmit -p frontend/tsconfig.json && vite build --config frontend/vite.config.ts",
+    "desktop": "cd backend/desktop && tauri",
+    "test": "cargo test -p auction-core && playwright test",
+    "test:e2e": "playwright test",
+    "check": "npm run build && cargo test -p auction-core && cargo clippy -p auction-core -- -D warnings",
+    "format": "prettier --write frontend schemas playwright.config.ts package.json .github/workflows",
+    "format:check": "prettier --check frontend schemas playwright.config.ts package.json .github/workflows"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}
