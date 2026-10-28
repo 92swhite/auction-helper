@@ -4,6 +4,11 @@ A local-first desktop sourcing desk for a solo reseller. **Rust + React/TypeScri
 
 This is the first usable milestone: manually enter an auction, attach sold-price evidence, understand the full cost, calculate a maximum bid, watch it, and record the purchase and sale. It works without cloud accounts or API credentials.
 
+The local operations review branch also combines safe schema initialization,
+inventory inspection notes, consistent workspace reads and source/comparable
+evidence review. See [the integrated review and verification](docs/operations-quality-review.md)
+for its exact scope and package evidence. It remains unpublished for review.
+
 ![Auction Helper with fictional demonstration data](docs/preview.png)
 
 ## Run
@@ -52,6 +57,8 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 - Settings → Backup & restore downloads a complete, versioned local JSON backup (up to 1 MB), including lot evidence, watch state, inventory, criteria and audit history. Files are validated before a review/confirmation step. Restore is atomic, rejects stale previews and saves a private recovery copy beside the database first. See [backup and recovery](docs/backup-restore.md).
 - The older **Export data** action remains a readable analysis snapshot, not a restorable backup. For workspaces exceeding the JSON limit, close the app/bridge before copying the complete SQLite database.
 - No credentials are collected or stored. The local database is not encrypted; it has the protection of the user's OS account.
+- Sources & data includes a read-only manual capability catalog with dated documentation references and explicit unverified access. Custom source labels remain available when editing imported lots. See [source review evidence](docs/source-registry-verification.md); this catalog does not enable integrations.
+- Expand **Review comparable evidence** in an auction's analysis to inspect saved dates, conditions, prices, shipping and inclusion. New observations start as Asking; marking a verified sale requires an explicit choice. See [review verification](docs/comparable-evidence-review-verification.md).
 
 ## Scope and limitations
 

@@ -929,6 +929,7 @@ td strong {
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 22px;
   margin-top: 28px;
 }
@@ -944,13 +945,93 @@ td strong {
 .backup-panel dialog p {
   overflow-wrap: anywhere;
 }
-.source-row {
+.source-registry summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 15px 0;
   border-bottom: 1px solid var(--line);
   font-size: 12px;
+  cursor: pointer;
+}
+.source-registry summary::before {
+  content: "+";
+  color: var(--accent);
+}
+.source-registry details[open] summary::before {
+  content: "−";
+}
+.source-registry summary > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.source-registry summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.source-details {
+  padding: 0 0 15px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.source-reference {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  margin-top: 8px;
+}
+.source-reference svg {
+  flex-shrink: 0;
+}
+.comparable-evidence {
+  margin-top: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.comparable-evidence summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.comparable-evidence summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.comparable-evidence ol {
+  list-style: none;
+  padding: 0;
+}
+.comparable-evidence li {
+  border-block-start: 1px solid var(--line);
+  padding: 14px 0;
+}
+.comparable-evidence .evidence-kind {
+  color: #c0ec8b;
+  font-size: 11px;
+  margin: 5px 0;
+}
+.comparable-evidence dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0;
+}
+.comparable-evidence dt {
+  color: #a6b1a2;
+}
+.comparable-evidence dd {
+  margin: 0;
+  max-width: 60%;
+  text-align: right;
+}
+.comparable-evidence button {
+  width: 100%;
+  gap: 8px;
+  margin-top: 10px;
 }
 dialog {
   width: min(760px, calc(100% - 40px));
