@@ -53,6 +53,7 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 - The older **Export data** action remains a readable analysis snapshot, not a restorable backup. For workspaces exceeding the JSON limit, close the app/bridge before copying the complete SQLite database.
 - No credentials are collected or stored. The local database is not encrypted; it has the protection of the user's OS account.
 - Sources & data includes a read-only manual capability catalog with dated documentation references and explicit unverified access. Custom source labels remain available when editing imported lots. See [source review evidence](docs/source-registry-verification.md); this catalog does not enable integrations.
+- Expand **Review comparable evidence** in an auction's analysis to inspect saved dates, conditions, prices, shipping and inclusion. New observations start as Asking; marking a verified sale requires an explicit choice. See [review verification](docs/comparable-evidence-review-verification.md).
 
 ## Scope and limitations
 

@@ -21,7 +21,8 @@ Acceptance: enter an auction and comparable, obtain a reproducible analysis, wat
 - Explicit migration runner remains planned; the current database schema stays at version 1.
 - [x] Local manual-source review catalog with dated references, unknown-access states and preserved custom lot source labels. See [verification](source-registry-verification.md).
 - Provider/account authorization evidence and fixture-based network adapter tests remain pending; the catalog does not establish access or enable an adapter.
-- Model selection and evidence review: condition matching, stale comparable flags, manual range overrides.
+- [x] Local read-only comparable review with original dates/conditions/prices and explicit sold/excluded/asking roles; new observations require deliberate Sold confirmation.
+- Automatic condition matching, stale comparable decisions and manual range overrides remain planned.
 
 Acceptance: take an item from purchase through inspection and a draft listing; correct a cost without losing history; restore a workspace into a clean database.
 

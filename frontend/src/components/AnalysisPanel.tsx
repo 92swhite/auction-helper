@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type { LotView } from "../../../schemas/domain";
 import { money } from "../format";
+import { ComparableEvidence } from "./ComparableEvidence";
 
 export function Detail({
   lot,
@@ -51,6 +52,7 @@ export function Detail({
         <span className="amber-dot" />
         {a.evidence} · {a.soldCount} included sales
       </span>
+      <ComparableEvidence key={lot.input.id} lot={lot.input} />
       <div className="max-bid">
         <span>Maximum hammer bid</span>
         <strong>

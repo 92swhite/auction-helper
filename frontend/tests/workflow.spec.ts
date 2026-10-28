@@ -365,3 +365,130 @@ test("source review stays offline, separates sold evidence and preserves a custo
   expect(after.inventory).toEqual(before.inventory);
   expect(after.settings).toEqual(before.settings);
 });
+
+test("read-only evidence review exposes all observations without changing valuation", async ({
+  page,
+}, testInfo) => {
+  const invoke = async (action: string, payload: unknown = null) => {
+    const response = await page.request.post("/api/request", {
+      data: { action, payload },
+    });
+    const result = await response.json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  const observation = {
+    title: "Included sale fixture",
+    url: "https://example.com/confirmed-sale",
+    soldOn: "2001-01-01",
+    priceCents: 25000,
+    shippingCents: 1000,
+    condition: "Tested working",
+    sold: true,
+    included: true,
+  };
+  await invoke("save_lot", {
+    ...emptyLot(),
+    title: "Evidence review fixture",
+    url: "https://example.com/review-fixture",
+    condition: "Untested, parts unknown",
+    estimateCents: 100000,
+    comparables: [
+      observation,
+      {
+        ...observation,
+        title: "Excluded sale fixture",
+        priceCents: 400000,
+        included: false,
+      },
+      {
+        ...observation,
+        title: "Asking fixture",
+        priceCents: 9000000,
+        sold: false,
+      },
+    ],
+  });
+  const before = await invoke("backup");
+  const externalRequests: string[] = [];
+  page.on("request", (request) => {
+    if (!request.url().startsWith("http://127.0.0.1:1420/"))
+      externalRequests.push(request.url());
+  });
+  await page.goto("/");
+  await page
+    .getByRole("heading", {
+      name: "Evidence review fixture",
+      level: 3,
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".analysis-pair")).toContainText("$260.00");
+  await expect(page.locator(".evidence")).toContainText("1 included sales");
+  const review = page.locator(".comparable-evidence");
+  await review.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(review).toHaveAttribute("open", "");
+  await expect(review).toContainText("Untested, parts unknown");
+  await expect(review).toContainText("Tested working");
+  await expect(review).toContainText("No automatic matching or age cutoff");
+  await expect(review.locator("li")).toHaveCount(3);
+  await expect(review.locator("li").nth(0)).toContainText(
+    "Sold · used in estimate",
+  );
+  await expect(review.locator("li").nth(0)).toContainText("$250.00");
+  await expect(review.locator("li").nth(0)).toContainText("$10.00");
+  await expect(review.locator("li").nth(0).locator("time")).toHaveAttribute(
+    "datetime",
+    "2001-01-01",
+  );
+  await expect(review.locator("li").nth(1)).toContainText(
+    "Sold · excluded from estimate",
+  );
+  await expect(review.locator("li").nth(2)).toContainText(
+    "Asking · context only",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("evidence-review-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("evidence-review-phone.png"),
+    fullPage: true,
+  });
+  expect(externalRequests).toEqual([]);
+  expect(await invoke("backup")).toEqual(before);
+  await page.evaluate(() => {
+    window.open = () => {
+      throw new Error("Fixture browser failure");
+    };
+  });
+  await review
+    .getByRole("button", {
+      name: "Open evidence for comparable 1",
+      exact: true,
+    })
+    .click();
+  await expect(review.getByRole("alert")).toContainText("could not be opened");
+  expect(await invoke("backup")).toEqual(before);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole("heading", {
+      name: "Custom source fixture",
+      level: 3,
+      exact: true,
+    })
+    .click();
+  await expect(review).not.toHaveAttribute("open");
+  await review.locator("summary").click();
+  await expect(review).toContainText("No comparable observations saved");
+  await expect(review.getByRole("alert")).toHaveCount(0);
+  expect(externalRequests).toEqual([]);
+  expect(await invoke("backup")).toEqual(before);
+});

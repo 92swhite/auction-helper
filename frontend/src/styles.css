@@ -987,6 +987,52 @@ td strong {
 .source-reference svg {
   flex-shrink: 0;
 }
+.comparable-evidence {
+  margin-top: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.comparable-evidence summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.comparable-evidence summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.comparable-evidence ol {
+  list-style: none;
+  padding: 0;
+}
+.comparable-evidence li {
+  border-block-start: 1px solid var(--line);
+  padding: 14px 0;
+}
+.comparable-evidence .evidence-kind {
+  color: #c0ec8b;
+  font-size: 11px;
+  margin: 5px 0;
+}
+.comparable-evidence dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0;
+}
+.comparable-evidence dt {
+  color: #a6b1a2;
+}
+.comparable-evidence dd {
+  margin: 0;
+  max-width: 60%;
+  text-align: right;
+}
+.comparable-evidence button {
+  width: 100%;
+  gap: 8px;
+  margin-top: 10px;
+}
 dialog {
   width: min(760px, calc(100% - 40px));
   max-height: 90vh;

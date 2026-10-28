@@ -143,6 +143,20 @@ def toggle_source(name):
         str(bounds.y + bounds.height // 2), "click", "1"], check=True)
 
 
+def toggle_evidence():
+    def summary():
+        return next((n for n in nodes() if n.get_name() == "Review comparable evidence (2)"
+            and n.get_state_set().contains(Atspi.StateType.VISIBLE)), None)
+    wait(lambda: summary() is not None, "Missing native evidence disclosure")
+    component = summary().get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    time.sleep(.15)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    assert bounds.width > 0 and bounds.height > 0 and bounds.x >= 0 and bounds.y >= 0
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2),
+        str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+
+
 def chooser_open():
     return any(n.get_role_name() == "file chooser" and visible(n) for n in nodes())
 
@@ -188,7 +202,12 @@ def lot(title):
         "category": "Tools", "location": "Synthetic area", "endsAt": "2030-01-01T00:00:00Z", "condition": "Tested",
         "notes": "Native 🦆 café fixture", "bidCents": 1000, "estimateCents": 30000,
         "costs": {"premiumBps": 0, "taxBps": 0, "paymentBps": 0, "inboundCents": 0, "travelCents": 0, "prepCents": 0,
-            "sellingFeeBps": 0, "reserveBps": 500, "outboundCents": 0, "fixedSellingCents": 0}, "comparables": []}
+            "sellingFeeBps": 0, "reserveBps": 500, "outboundCents": 0, "fixedSellingCents": 0},
+        "comparables": [
+            {"title": "Sold native comparable", "url": "https://example.com/native-sold", "soldOn": "2001-01-01",
+                "priceCents": 23000, "shippingCents": 1000, "condition": "Tested working", "sold": True, "included": True},
+            {"title": "Asking native comparable", "url": "https://example.com/native-asking", "soldOn": "2001-01-02",
+                "priceCents": 500000, "shippingCents": 0, "condition": "Untested", "sold": False, "included": True}]}
 
 
 # Both the application and all D-Bus-activated services inherit these disposable paths.
@@ -205,7 +224,20 @@ before = core("backup")
 
 with (args.output / "app.txt").open("w") as log:
     try:
-        start(); click("Settings")
+        start()
+        toggle_evidence()
+        wait(lambda: find_button("Open evidence for comparable 1") is not None, "Native evidence did not expand")
+        find_button("Open evidence for comparable 1").get_component_iface().scroll_to(Atspi.ScrollType.ANYWHERE)
+        wait(lambda: "Sold · used in estimate" in text() and "2001-01-01" in text(), "Native evidence provenance missing")
+        assert "Tested working" in text() and core("snapshot")["lots"][0]["analysis"]["saleCents"] == 24000
+        assert core("backup") == before
+        capture("native-evidence-review")
+        checks.append("Native evidence disclosure shows sale date, condition, price and shipping; the real estimate is $240 and data is unchanged")
+        toggle_evidence()
+        wait(lambda: find_button("Open evidence for comparable 1") is None, "Native evidence did not collapse")
+        assert core("backup") == before
+        checks.append("Native evidence disclosure closes without opening a provider page or changing the workspace")
+        click("Settings")
         toggle_source("eBay comparable evidence")
         wait(lambda: find_button("eBay Browse API") is not None, "Native source references did not expand")
         find_button("eBay Browse API").get_component_iface().scroll_to(Atspi.ScrollType.ANYWHERE)
