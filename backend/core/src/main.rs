@@ -20,10 +20,11 @@ fn main() {
             .ok_or("Usage: auction-core <database-path>; JSON request on stdin")?;
         let mut input = String::new();
         io::stdin()
-            .take(2_000_001)
+            .take(8_000_001)
             .read_to_string(&mut input)
             .map_err(|e| e.to_string())?;
-        if input.len() > 2_000_000 {
+        // A 1 MB backup string can expand sixfold inside a JSON request.
+        if input.len() > 8_000_000 {
             return Err("Request is too large.".into());
         }
         let req: Request = serde_json::from_str(&input).map_err(|e| e.to_string())?;

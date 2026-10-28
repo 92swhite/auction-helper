@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 test("manual auction → evidence → watch → persisted purchase → sale", async ({
   page,
@@ -80,4 +81,118 @@ test("settings persist and unsafe source links are rejected", async ({
   );
   await page.getByRole("button", { name: "Close dialog" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
+});
+
+test("backup download, cancel, stale review and atomic restore persist", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const downloadEvent = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download backup", exact: true })
+    .click();
+  const download = await downloadEvent;
+  const file = await readFile((await download.path())!);
+  const saved = JSON.parse(file.toString("utf8"));
+  expect(saved.app).toBe("auction-helper");
+  expect(saved.formatVersion).toBe(1);
+  expect(saved.auditEvents.length).toBeGreaterThan(0);
+  const invoke = async (action: string, payload: unknown = null) => {
+    const response = await page.request.post("/api/request", {
+      data: { action, payload },
+    });
+    const result = await response.json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  const extra = {
+    ...saved.lots[0].input,
+    id: null,
+    title: "Added after backup 🦆",
+  };
+  await invoke("save_lot", extra);
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const choose = () =>
+    page.getByLabel("Backup file", { exact: true }).setInputFiles({
+      name: "saved-workspace.json",
+      mimeType: "application/json",
+      buffer: file,
+    });
+  await choose();
+  const dialog = page.getByRole("dialog", { name: "Restore workspace" });
+  await expect(dialog).toContainText(`Lots: ${saved.lots.length}`);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect((await invoke("snapshot")).lots.length).toBe(saved.lots.length + 1);
+  await choose();
+  await expect(dialog).toBeVisible();
+  await invoke("settings", {
+    ...saved.settings,
+    minProfitCents: saved.settings.minProfitCents + 100,
+  });
+  await dialog
+    .getByRole("button", { name: "Replace workspace", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "changed since preview",
+  );
+  expect((await invoke("snapshot")).lots.length).toBe(saved.lots.length + 1);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await choose();
+  await expect(dialog).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("restore-review-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    dialog.getByRole("button", { name: "Replace workspace", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("restore-review-phone.png"),
+    fullPage: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Replace workspace", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator(".backup-panel").getByRole("status")).toContainText(
+    "Previous workspace backup saved at",
+  );
+  await expect(page.getByLabel("Minimum net profit ($)")).toHaveValue(
+    String(saved.settings.minProfitCents / 100),
+  );
+  let restored = await invoke("snapshot");
+  expect(restored.lots.length).toBe(saved.lots.length);
+  expect(restored.inventory).toEqual(saved.inventory);
+  expect(restored.settings).toEqual(saved.settings);
+  await page.reload();
+  restored = await invoke("snapshot");
+  expect(restored.lots.length).toBe(saved.lots.length);
+  expect(restored.inventory).toEqual(saved.inventory);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Backup file", { exact: true }).setInputFiles({
+    name: "bad.json",
+    mimeType: "application/json",
+    buffer: Buffer.from("not JSON"),
+  });
+  await expect(page.locator(".backup-panel").getByRole("alert")).toContainText(
+    "Invalid backup JSON",
+  );
+  await page.getByLabel("Backup file", { exact: true }).setInputFiles({
+    name: "large.json",
+    mimeType: "application/json",
+    buffer: Buffer.alloc(1_000_001, 32),
+  });
+  await expect(page.locator(".backup-panel").getByRole("alert")).toContainText(
+    "1 MB limit",
+  );
+  expect((await invoke("snapshot")).inventory).toEqual(saved.inventory);
 });

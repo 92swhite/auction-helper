@@ -30,6 +30,7 @@ import { ModalFrame } from "./components/FormControls";
 import { LotForm } from "./components/LotForm";
 import { TransactionForm } from "./components/TransactionForm";
 import { SettingsView } from "./components/SettingsView";
+import { BackupRestore } from "./components/BackupRestore";
 
 type Page = "Opportunities" | "Watchlist" | "Inventory" | "Settings";
 export default function App() {
@@ -581,14 +582,24 @@ export default function App() {
                 </section>
               )}
               {page === "Settings" && (
-                <SettingsView
-                  settings={data.settings}
-                  busy={busy}
-                  onSave={(s) =>
-                    mutate("settings", s, "Buying criteria saved.")
-                  }
-                  onExport={exportData}
-                />
+                <>
+                  <SettingsView
+                    key={JSON.stringify(data.settings)}
+                    settings={data.settings}
+                    busy={busy}
+                    onSave={(s) =>
+                      mutate("settings", s, "Buying criteria saved.")
+                    }
+                    onExport={exportData}
+                  />
+                  <BackupRestore
+                    onRestored={(snapshot) => {
+                      setData(snapshot);
+                      setSelected(null);
+                      setError("");
+                    }}
+                  />
+                </>
               )}
               <footer>
                 <span>

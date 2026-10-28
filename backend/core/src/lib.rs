@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod model;
 pub mod valuation;
 
@@ -5,13 +6,14 @@ use chrono::Utc;
 use model::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use valuation::*;
 
 pub type Result<T> = std::result::Result<T, String>;
 
 pub struct Store {
     conn: Connection,
+    path: PathBuf,
 }
 
 impl Store {
@@ -31,7 +33,10 @@ impl Store {
             [serde_json::to_string(&Settings::default()).unwrap()],
         )
         .map_err(|e| e.to_string())?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            path: path.to_path_buf(),
+        })
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
@@ -108,6 +113,14 @@ impl Store {
     // Every mutation and its audit record commit atomically. IMMEDIATE prevents
     // concurrent purchases from spending the same available capital.
     pub fn dispatch(&mut self, action: &str, payload: Value) -> Result<Value> {
+        match action {
+            "backup" => {
+                return serde_json::to_value(self.create_backup()?).map_err(|e| e.to_string())
+            }
+            "validate_backup" => return self.preview_backup(payload),
+            "restore_backup" => return self.restore_backup(payload),
+            _ => {}
+        }
         if action == "snapshot" {
             return serde_json::to_value(self.snapshot()?).map_err(|e| e.to_string());
         }

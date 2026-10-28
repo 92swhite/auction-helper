@@ -935,6 +935,15 @@ td strong {
 .settings-panel {
   padding: 25px;
 }
+.backup-panel {
+  margin-top: 22px;
+}
+.recovery-note {
+  overflow-wrap: anywhere;
+}
+.backup-panel dialog p {
+  overflow-wrap: anywhere;
+}
 .source-row {
   display: flex;
   justify-content: space-between;
