@@ -1,4 +1,5 @@
 pub mod backup;
+mod migrations;
 pub mod model;
 pub mod valuation;
 
@@ -21,18 +22,12 @@ impl Store {
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let conn = Connection::open(path).map_err(|e| e.to_string())?;
+        let mut conn = Connection::open(path).map_err(|e| e.to_string())?;
         conn.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(|e| e.to_string())?;
+        migrations::initialize(&mut conn)?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
-        conn.execute_batch(include_str!("../../../migrations/001_initial.sql"))
-            .map_err(|e| e.to_string())?;
-        conn.execute(
-            "INSERT OR IGNORE INTO settings VALUES (1, ?1)",
-            [serde_json::to_string(&Settings::default()).unwrap()],
-        )
-        .map_err(|e| e.to_string())?;
         Ok(Self {
             conn,
             path: path.to_path_buf(),

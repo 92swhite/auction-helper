@@ -230,9 +230,11 @@ export default function App() {
           {error && (
             <div className="error" role="alert">
               {error}
-              <button aria-label="Dismiss error" onClick={() => setError("")}>
-                <X size={16} />
-              </button>
+              {data && (
+                <button aria-label="Dismiss error" onClick={() => setError("")}>
+                  <X size={16} />
+                </button>
+              )}
             </div>
           )}
           {notice && (
@@ -247,7 +249,11 @@ export default function App() {
               <h2>
                 {error ? "Unable to open workspace" : "Opening your workspace…"}
               </h2>
-              <p>Your local database will be ready in a moment.</p>
+              <p>
+                {error
+                  ? "Your workspace is unavailable. Review the error above before retrying."
+                  : "Your local database will be ready in a moment."}
+              </p>
               {error && (
                 <button onClick={() => window.location.reload()}>Retry</button>
               )}

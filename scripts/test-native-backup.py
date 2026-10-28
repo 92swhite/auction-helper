@@ -21,6 +21,7 @@ parser.add_argument("application", type=Path)
 parser.add_argument("--core", required=True, type=Path)
 parser.add_argument("--ui-tool", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
+parser.add_argument("--check-schema-refusal", action="store_true")
 parser.add_argument("--fixture", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
 for key in ["application", "core", "ui_tool", "output"]:
@@ -31,6 +32,7 @@ args.output.mkdir(parents=True, exist_ok=True)
 
 if args.fixture is None:
     (args.output / "native-report.json").unlink(missing_ok=True)
+    (args.output / "native-schema-report.json").unlink(missing_ok=True)
     (args.output / "failure.txt").unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="auction-native-backup-", dir=args.output, ignore_cleanup_errors=True) as temporary:
         fixture = Path(temporary)
@@ -42,6 +44,8 @@ if args.fixture is None:
         command = ["dbus-run-session", "--", "xvfb-run", "-a", "-s", "-screen 0 1600x1200x24",
             "/usr/bin/python3", str(Path(__file__).resolve()), str(args.application), "--core", str(args.core),
             "--ui-tool", str(args.ui_tool), "--output", str(args.output), "--fixture", str(fixture)]
+        if args.check_schema_refusal:
+            command.append("--check-schema-refusal")
         process = subprocess.Popen(command, env=env, start_new_session=True)
         result = process.wait()
         try:
@@ -186,6 +190,51 @@ purchased = core("purchase", {"id": ids["Sold native fixture"], "acquisitionCent
 core("sell", {"id": purchased["inventory"][0]["id"], "grossCents": 20000, "expenseCents": 1500})
 core("purchase", {"id": ids["Held native fixture"], "acquisitionCents": 5000})
 before = core("backup")
+
+if args.check_schema_refusal:
+    with sqlite3.connect(db) as connection:
+        connection.execute("CREATE TABLE future_notes(value TEXT)")
+        connection.execute("INSERT INTO future_notes VALUES('Synthetic future data')")
+        connection.execute("PRAGMA user_version=9")
+    original_bytes = db.read_bytes()
+    with (args.output / "app.txt").open("w") as log:
+        try:
+            start()
+            wait(lambda: "Unable to open workspace" in text() and "schema version 9" in text(), "Native schema refusal was not shown")
+            assert find_button("Dismiss error") is None
+            assert db.read_bytes() == original_bytes
+            add = next(n for n in nodes() if n.get_name() == "Add auction" and n.get_role_name() == "button")
+            assert not add.get_state_set().contains(Atspi.StateType.ENABLED)
+            capture("native-schema-refused")
+            with sqlite3.connect(db) as connection:
+                assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+                assert connection.execute("SELECT value FROM future_notes").fetchone()[0] == "Synthetic future data"
+                # Only the disposable fixture is corrected externally to exercise Retry.
+                connection.execute("PRAGMA user_version=1")
+            click("Retry")
+            wait(lambda: find_button("Add auction") is not None, "Retry did not reopen the compatible fixture")
+            click("Inventory")
+            wait(lambda: "Held native fixture" in text(), "Retry did not load retained inventory")
+            assert core("backup") == before
+            with sqlite3.connect(db) as connection:
+                assert connection.execute("SELECT value FROM future_notes").fetchone()[0] == "Synthetic future data"
+            capture("native-schema-retried")
+            result = {"status": "passed", "applicationSha256": hashlib.sha256(args.application.read_bytes()).hexdigest(),
+                "checks": ["Actual native UI shows unsupported-version refusal without changing database bytes or future data", "Retry reopens an externally corrected test fixture and preserves all original records"],
+                "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; normal packaged launch; no backend mock"}
+            (args.output / "native-schema-report.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result, indent=2), flush=True)
+        except Exception as error:
+            (args.output / "failure.txt").write_text(repr(error) + "\n")
+            if app is not None:
+                try:
+                    capture("native-failure")
+                except Exception:
+                    pass
+            raise
+        finally:
+            stop()
+    raise SystemExit(0)
 
 with (args.output / "app.txt").open("w") as log:
     try:
