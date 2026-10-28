@@ -1,6 +1,8 @@
 pub mod backup;
 mod migrations;
 pub mod model;
+#[cfg(test)]
+mod snapshot_tests;
 pub mod valuation;
 
 use chrono::Utc;
@@ -43,6 +45,21 @@ impl Store {
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
+        // Keep settings, inventory and lots on one committed SQLite read view.
+        // Purchase checks already run inside the caller's IMMEDIATE transaction.
+        if !self.conn.is_autocommit() {
+            return self.read_snapshot();
+        }
+        let transaction = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
+        let snapshot = self.read_snapshot()?;
+        transaction.commit().map_err(|e| e.to_string())?;
+        Ok(snapshot)
+    }
+
+    fn read_snapshot(&self) -> Result<Snapshot> {
         let raw: String = self
             .conn
             .query_row("SELECT payload FROM settings WHERE id=1", [], |r| r.get(0))

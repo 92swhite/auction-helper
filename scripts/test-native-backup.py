@@ -233,7 +233,9 @@ if args.check_inventory_notes:
             current = next(value for value in core("snapshot")["lots"] if value["input"]["id"] == lot_id)["input"]
             core("save_lot", dict(current, title="Concurrent native source title"))
             click("Save notes")
-            wait(lambda: find_button("Save notes") is None, "Native note save did not close review")
+            # Save changes its label to Saving… before the IPC completes.
+            # Wait for the actual dialog to close, not for that label to disappear.
+            wait(lambda: find_button("Close dialog") is None, "Native note save did not close review")
             saved = core("backup")
             source = next(value for value in saved["lots"] if value["input"]["id"] == lot_id)["input"]
             assert source["notes"] == "Inspected battery; pickup pending." and source["title"] == "Concurrent native source title"
