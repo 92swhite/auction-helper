@@ -26,9 +26,20 @@ test("manual auction → evidence → watch → persisted purchase → sale", as
     .getByRole("button", { name: "Comparable evidence", exact: true })
     .click();
   await dialog.getByRole("button", { name: "Add comparable" }).click();
+  await expect(dialog.getByLabel("Sold (verified by me)")).not.toBeChecked();
   await dialog.getByLabel("Comparable title").fill("Same model, tested");
   await dialog.getByLabel("Evidence URL").fill("https://example.com/sold/1");
   await dialog.getByLabel("Sale / asking price ($)").fill("200");
+  await dialog.getByRole("button", { name: "Save & analyze" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator(".analysis-pair")).toContainText("$180.00");
+  await expect(page.locator(".evidence")).toContainText("0 included sales");
+  await page.getByRole("button", { name: "Edit selected auction" }).click();
+  await dialog
+    .getByRole("button", { name: "Comparable evidence", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Sold (verified by me)")).not.toBeChecked();
+  await dialog.getByLabel("Sold (verified by me)").check();
   await dialog.getByRole("button", { name: "Save & analyze" }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".analysis-pair")).toContainText("$200.00");

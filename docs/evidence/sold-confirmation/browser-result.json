@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-28",
+  "baseCommit": "6800baf445bcc9896738f9eaf6857bf26a3fb8b4",
+  "baseline": {
+    "exitCode": 1,
+    "failure": "Sold (verified by me) unexpectedly checked on a new comparable"
+  },
+  "final": {
+    "productionBuildExitCode": 0,
+    "browserExitCode": 0,
+    "browserJourneys": 4,
+    "durationSeconds": 8.6,
+    "backend": "actual Rust and isolated SQLite",
+    "observations": [
+      "new comparable is Asking by default",
+      "saved/reopened Asking preserves manual $180 estimate with zero included sales",
+      "explicit Sold confirmation changes estimate to $200",
+      "existing purchase/sale/settings/backup/source-review journeys pass"
+    ]
+  },
+  "sourceSha256": {
+    "frontend/src/components/LotForm.tsx": "864d592071f4b975a566c742b8608b952db53ad88161b0f3a13a922c6eebcf18",
+    "frontend/tests/workflow.spec.ts": "561a80fce8b9668828d2b31a4c3fb91c7570793838ce8467493b0b2a6478a794"
+  },
+  "nativePackageForThisChange": false
+}
