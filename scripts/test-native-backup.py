@@ -21,7 +21,9 @@ parser.add_argument("application", type=Path)
 parser.add_argument("--core", required=True, type=Path)
 parser.add_argument("--ui-tool", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
-parser.add_argument("--check-schema-refusal", action="store_true")
+mode = parser.add_mutually_exclusive_group()
+mode.add_argument("--check-schema-refusal", action="store_true")
+mode.add_argument("--check-inventory-notes", action="store_true")
 parser.add_argument("--fixture", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
 for key in ["application", "core", "ui_tool", "output"]:
@@ -33,6 +35,7 @@ args.output.mkdir(parents=True, exist_ok=True)
 if args.fixture is None:
     (args.output / "native-report.json").unlink(missing_ok=True)
     (args.output / "native-schema-report.json").unlink(missing_ok=True)
+    (args.output / "native-inventory-report.json").unlink(missing_ok=True)
     (args.output / "failure.txt").unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="auction-native-backup-", dir=args.output, ignore_cleanup_errors=True) as temporary:
         fixture = Path(temporary)
@@ -46,6 +49,8 @@ if args.fixture is None:
             "--ui-tool", str(args.ui_tool), "--output", str(args.output), "--fixture", str(fixture)]
         if args.check_schema_refusal:
             command.append("--check-schema-refusal")
+        if args.check_inventory_notes:
+            command.append("--check-inventory-notes")
         process = subprocess.Popen(command, env=env, start_new_session=True)
         result = process.wait()
         try:
@@ -156,6 +161,26 @@ def capture(name):
     (args.output / (name + "-text.txt")).write_text(text())
 
 
+def notes_control():
+    controls = [n for n in nodes() if visible(n) and n.get_state_set().contains(Atspi.StateType.EDITABLE)
+        and n.get_text_iface() is not None]
+    return controls[0] if len(controls) == 1 else None
+
+
+def type_notes(value):
+    wait(lambda: notes_control() is not None, "Native inspection notes field missing")
+    component = notes_control().get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2), str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+    subprocess.run([str(args.ui_tool), "key", "--clearmodifiers", "ctrl+a"], check=True)
+    subprocess.run([str(args.ui_tool), "type", "--clearmodifiers", "--delay", "1", value], check=True)
+
+
+def notes_value():
+    return Atspi.Text.get_text(notes_control().get_text_iface(), 0, -1)
+
+
 def start():
     global app
     app = subprocess.Popen([str(args.application)], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -190,6 +215,61 @@ purchased = core("purchase", {"id": ids["Sold native fixture"], "acquisitionCent
 core("sell", {"id": purchased["inventory"][0]["id"], "grossCents": 20000, "expenseCents": 1500})
 core("purchase", {"id": ids["Held native fixture"], "acquisitionCents": 5000})
 before = core("backup")
+
+if args.check_inventory_notes:
+    item = next(value for value in before["inventory"] if value["title"] == "Held native fixture")
+    lot_id = item["lotId"]
+    original = next(value for value in before["lots"] if value["input"]["id"] == lot_id)["input"]["notes"]
+    with (args.output / "app.txt").open("w") as log:
+        try:
+            start(); click("Inventory"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native notes editor missing")
+            assert notes_value() == original
+            type_notes("Cancelled native inspection draft")
+            click("Cancel")
+            assert core("backup") == before
+            click("Edit notes for Held native fixture")
+            type_notes("Inspected battery; pickup pending.")
+            current = next(value for value in core("snapshot")["lots"] if value["input"]["id"] == lot_id)["input"]
+            core("save_lot", dict(current, title="Concurrent native source title"))
+            click("Save notes")
+            wait(lambda: find_button("Save notes") is None, "Native note save did not close review")
+            saved = core("backup")
+            source = next(value for value in saved["lots"] if value["input"]["id"] == lot_id)["input"]
+            assert source["notes"] == "Inspected battery; pickup pending." and source["title"] == "Concurrent native source title"
+            assert saved["inventory"] == before["inventory"] and saved["settings"] == before["settings"]
+            click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native notes reopen missing")
+            assert notes_value() == source["notes"]
+            type_notes("Keep this unsaved native draft")
+            core("save_lot", dict(source, notes="Another session's newer native note"))
+            click("Save notes")
+            wait(lambda: "changed since you opened" in text(), "Native stale-note refusal missing")
+            assert notes_value() == "Keep this unsaved native draft"
+            click("Cancel"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native latest-note review missing")
+            assert notes_value() == "Another session's newer native note"
+            capture("native-inventory-notes")
+            click("Cancel"); stop(); start(); click("Inventory"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Restarted notes field missing")
+            assert notes_value() == "Another session's newer native note"
+            assert core("backup")["inventory"] == before["inventory"]
+            result = {"status": "passed", "applicationSha256": hashlib.sha256(args.application.read_bytes()).hexdigest(),
+                "checks": ["Actual native cancel preserves records", "Native notes save preserves concurrent lot edits and ledger values", "Native stale refusal retains draft and refreshes latest notes on reopen", "Fresh packaged process reopens the saved notes"],
+                "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; actual pointer and keyboard events; no backend mocks"}
+            (args.output / "native-inventory-report.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result, indent=2), flush=True)
+        except Exception as error:
+            (args.output / "failure.txt").write_text(repr(error) + "\n")
+            if app is not None:
+                try:
+                    capture("native-failure")
+                except Exception:
+                    pass
+            raise
+        finally:
+            stop()
+    raise SystemExit(0)
 
 if args.check_schema_refusal:
     with sqlite3.connect(db) as connection:

@@ -16,7 +16,8 @@ Acceptance: enter an auction and comparable, obtain a reproducible analysis, wat
 ## 2. Reliable operations and richer inventory
 
 - Reversible ledger corrections, additional expense entries, returns and disposal.
-- Inventory stages (pickup, testing, ready to list, listed), inspection notes and user-reviewed listing drafts.
+- Inventory stages (pickup, testing, ready to list, listed) and user-reviewed listing drafts remain planned.
+- [x] Inspection/lot notes are available from purchased and sold inventory on the local inventory-notes branch, with stale-save protection and unchanged ledger values.
 - [x] Validated JSON backup/restore with preview, atomic replacement, stale-review protection and automatic recovery copies.
 - [x] Explicit atomic initialization/version runner on the local schema-safety branch; the database stays at version 1. Unsupported or mismatched files are refused without repair.
 - Source capability registry with authorization evidence, timestamps, provenance and fixture-based adapter tests.

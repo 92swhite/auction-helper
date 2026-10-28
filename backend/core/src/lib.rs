@@ -12,6 +12,14 @@ use valuation::*;
 
 pub type Result<T> = std::result::Result<T, String>;
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InventoryNotesRequest {
+    id: String,
+    expected_notes: String,
+    notes: String,
+}
+
 pub struct Store {
     conn: Connection,
     path: PathBuf,
@@ -155,6 +163,32 @@ impl Store {
             .unwrap_or_default();
         let subject: String;
         match action {
+            "inventory_notes" => {
+                let request: InventoryNotesRequest =
+                    serde_json::from_value(payload).map_err(|e| e.to_string())?;
+                let row: Option<(String, String)> = self.conn.query_row(
+                    "SELECT l.id,l.payload FROM inventory i JOIN lots l ON l.id=i.lot_id WHERE i.id=?1",
+                    [&request.id], |row| Ok((row.get(0)?,row.get(1)?)),
+                ).optional().map_err(|e| e.to_string())?;
+                let (lot_id, raw) = row.ok_or("Inventory item or linked lot no longer exists.")?;
+                let mut lot: LotInput = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+                if lot.notes != request.expected_notes {
+                    return Err("Inventory notes changed since you opened them. Keep your draft, then reopen to review the latest notes.".into());
+                }
+                lot.notes = request.notes;
+                validate_lot(&lot)?;
+                self.conn
+                    .execute(
+                        "UPDATE lots SET payload=?1,updated_at=?2 WHERE id=?3",
+                        params![
+                            serde_json::to_string(&lot).map_err(|e| e.to_string())?,
+                            now,
+                            lot_id
+                        ],
+                    )
+                    .map_err(|e| e.to_string())?;
+                subject = lot_id;
+            }
             "save_lot" => {
                 let mut lot: LotInput =
                     serde_json::from_value(payload).map_err(|e| e.to_string())?;
@@ -248,7 +282,16 @@ impl Store {
         self.conn
             .execute(
                 "INSERT INTO audit_events(action,subject_id,created_at) VALUES(?1,?2,?3)",
-                params![action, subject, now],
+                // Notes use the existing v1 lot-update audit vocabulary.
+                params![
+                    if action == "inventory_notes" {
+                        "save_lot"
+                    } else {
+                        action
+                    },
+                    subject,
+                    now
+                ],
             )
             .map_err(|e| e.to_string())?;
         Ok(())

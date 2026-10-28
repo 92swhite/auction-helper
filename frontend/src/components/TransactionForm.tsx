@@ -8,7 +8,7 @@ export function TransactionForm({
   busy,
   onSave,
 }: {
-  modal: Exclude<Modal, null | { type: "lot" }>;
+  modal: Extract<Modal, { type: "purchase" | "sale" }>;
   busy: boolean;
   onSave: (p: unknown) => Promise<void>;
 }) {

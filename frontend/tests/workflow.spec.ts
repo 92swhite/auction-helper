@@ -196,3 +196,128 @@ test("backup download, cancel, stale review and atomic restore persist", async (
   );
   expect((await invoke("snapshot")).inventory).toEqual(saved.inventory);
 });
+
+test("inventory inspection notes cancel, persist and refuse conflicting edits without changing the ledger", async ({
+  page,
+}, info) => {
+  const { emptyLot } = await import("../src/sample");
+  async function backend(action: string, payload: unknown = null) {
+    const response = await page.request.post("/api/request", {
+      data: { action, payload },
+    });
+    expect(response.ok()).toBe(true);
+    const result = await response.json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  }
+  await page.goto("/");
+  const initial = {
+    ...emptyLot(),
+    title: "Inspection notes browser fixture",
+    url: "https://example.com/notes",
+    notes: "Original source note",
+    estimateCents: 20000,
+  };
+  const saved = await backend("save_lot", initial);
+  const lotId = saved.lots.find(
+    (lot: { input: { title: string } }) => lot.input.title === initial.title,
+  ).input.id;
+  const purchased = await backend("purchase", {
+    id: lotId,
+    acquisitionCents: 5000,
+  });
+  const item = purchased.inventory.find(
+    (item: { lotId: string }) => item.lotId === lotId,
+  );
+  const ledger = (value: typeof purchased) => ({
+    inventory: value.inventory,
+    available: value.availableCents,
+    invested: value.investedCents,
+    realized: value.realizedProfitCents,
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  const open = () =>
+    page
+      .getByRole("button", {
+        name: `Edit notes for ${item.title}`,
+        exact: true,
+      })
+      .click();
+  await open();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Inspection & lot notes")).toHaveValue(
+    "Original source note",
+  );
+  await dialog.getByLabel("Inspection & lot notes").fill("Cancelled draft");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(
+    (await backend("snapshot")).lots.find(
+      (lot: { input: { id: string } }) => lot.input.id === lotId,
+    ).input.notes,
+  ).toBe("Original source note");
+  await open();
+  await dialog
+    .getByLabel("Inspection & lot notes")
+    .fill("Battery tested 🦆\nPickup planned.");
+  const latest = (await backend("snapshot")).lots.find(
+    (lot: { input: { id: string } }) => lot.input.id === lotId,
+  ).input;
+  await backend("save_lot", {
+    ...latest,
+    title: "Concurrent source title kept",
+  });
+  await dialog.getByRole("button", { name: "Save notes", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const after = await backend("snapshot");
+  expect(
+    after.lots.find((lot: { input: { id: string } }) => lot.input.id === lotId)
+      .input.title,
+  ).toBe("Concurrent source title kept");
+  expect(ledger(after)).toEqual(ledger(purchased));
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await open();
+  await expect(dialog.getByLabel("Inspection & lot notes")).toHaveValue(
+    "Battery tested 🦆\nPickup planned.",
+  );
+  await dialog
+    .getByLabel("Inspection & lot notes")
+    .fill("My unsaved inspection draft");
+  const current = (await backend("snapshot")).lots.find(
+    (lot: { input: { id: string } }) => lot.input.id === lotId,
+  ).input;
+  await backend("save_lot", {
+    ...current,
+    notes: "Another session's newer note",
+  });
+  await dialog.getByRole("button", { name: "Save notes", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "changed since you opened",
+  );
+  await expect(dialog.getByLabel("Inspection & lot notes")).toHaveValue(
+    "My unsaved inspection draft",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Save notes", exact: true }),
+  ).toBeFocused();
+  expect(ledger(await backend("snapshot"))).toEqual(ledger(purchased));
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await open();
+  await expect(dialog.getByLabel("Inspection & lot notes")).toHaveValue(
+    "Another session's newer note",
+  );
+  await page.screenshot({
+    path: info.outputPath("inventory-notes-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    dialog.getByRole("button", { name: "Save notes", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: info.outputPath("inventory-notes-phone.png") });
+});
