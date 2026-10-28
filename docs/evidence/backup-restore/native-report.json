@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "applicationSha256": "834aa5e052d707a9fc9c31fc4a2673cdeb413dfb0257ccf890ba6288cc9625d4",
+  "coreFixtureToolSha256": "236863a81ae49f2dcd475fd8f1498b0b161bcbb4fc3e0d954477d2b3292417c7",
+  "checks": [
+    "Actual GTK file-open Cancel preserves the packaged workspace",
+    "Real packaged WebKit download exactly matches the Rust backup, including Unicode and audit history",
+    "GTK selection of a path containing spaces reaches review; review Cancel preserves newer work",
+    "Stale review refuses replacement; fresh confirmation restores exact records and a complete prior recovery file",
+    "Malformed file selected through GTK leaves the restored database unchanged",
+    "A fresh packaged process reopens restored records; SQLite integrity and foreign keys pass"
+  ],
+  "downloadName": "auction-helper-backup-2026-10-28.json",
+  "fixture": "Disposable XDG data/config/cache/runtime/Downloads, D-Bus and Xvfb; normal packaged WebKit/GTK, no backend mocks"
+}

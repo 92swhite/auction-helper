@@ -54,9 +54,10 @@ URL is executed/fetched. Validation does not authenticate file contents.
 
 ## Limits and review state
 
-The native compile is not a packaged WebKit file-picker/download acceptance test.
-That native UI path and OS-specific file permissions outside Unix remain
-unverified. Chromium phone emulation is not physical-device acceptance. The
+The subsequent [packaged native acceptance](native-backup-acceptance.md) passed
+the real Linux WebKit download and GTK file-picker flow with isolated data.
+Other operating systems and file permissions outside Unix remain unverified.
+Chromium phone emulation is not physical-device acceptance. The
 backup is unencrypted; keep it private. Older readable analysis exports cannot
 restore complete records. Large workspaces retain the documented closed-app
 SQLite-copy route; no history is automatically pruned.
