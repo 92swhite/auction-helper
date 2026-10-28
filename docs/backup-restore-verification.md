@@ -61,7 +61,10 @@ backup is unencrypted; keep it private. Older readable analysis exports cannot
 restore complete records. Large workspaces retain the documented closed-app
 SQLite-copy route; no history is automatically pruned.
 
-No personal data was replaced, no app was deployed, and no branch/PR was published
-or merged. The original checkout remains clean. Local evidence/logs remain in
-`.local/backup-qa/` and `test-results/`. See the [implementation plan](backup-restore-plan.md)
-and [recovery guide](backup-restore.md). Publication awaits scope confirmation.
+No personal data was replaced and no app was deployed. The original checkout
+remains clean. Publication for PR review is authorized; this does not authorize
+approval, merge or deployment. The tested implementation is `71e039a`; subsequent
+publication handoff edits change documentation only. Hosted CI must be verified
+on the published source head. Local evidence/logs remain in `.local/backup-qa/`
+and `test-results/`. See the [implementation plan](backup-restore-plan.md) and
+[recovery guide](backup-restore.md).
