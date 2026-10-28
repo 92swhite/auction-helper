@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "producerCommit": "594275a366758ac1055984002cbf5a8a17d62e6e",
+  "previousCoreSha256": "236863a81ae49f2dcd475fd8f1498b0b161bcbb4fc3e0d954477d2b3292417c7",
+  "currentCoreSha256": "56714513322df3f3be6afaffb61d45b9492694a820585aea182ddc412d73d4aa",
+  "checks": [
+    "Published v1 workspace reopens without reseeding or logical changes",
+    "Published v1 backup restores with exact records and original history",
+    "New inventory notes preserve the v1 backup/audit vocabulary and ledger",
+    "Published reader restores the candidate backup without dropping new notes or asking/excluded evidence",
+    "Candidate reopens the older reader's restored file; all three SQLite files pass integrity and foreign-key checks"
+  ],
+  "fixture": "Only synthetic isolated SQLite files; no owner database, provider request or credentials"
+}
