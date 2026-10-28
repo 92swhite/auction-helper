@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Plus, X } from "lucide-react";
 import type { Comparable, Costs, LotInput } from "../../../schemas/domain";
 import { Field, Amount } from "./FormControls";
+import { auctionSourceOptions } from "../sources";
 
 export function LotForm({
   initial,
@@ -107,15 +108,7 @@ export function LotForm({
               value={lot.source}
               onChange={(e) => set("source", e.target.value)}
             >
-              {[
-                "Manual",
-                "Dickensheet",
-                "PublicSurplus",
-                "GovDeals",
-                "HiBid",
-                "Other",
-                ...(lot.source.startsWith("Demo") ? [lot.source] : []),
-              ].map((s) => (
+              {auctionSourceOptions(lot.source).map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>

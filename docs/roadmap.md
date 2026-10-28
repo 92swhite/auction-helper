@@ -19,7 +19,8 @@ Acceptance: enter an auction and comparable, obtain a reproducible analysis, wat
 - Inventory stages (pickup, testing, ready to list, listed), inspection notes and user-reviewed listing drafts.
 - [x] Validated JSON backup/restore with preview, atomic replacement, stale-review protection and automatic recovery copies.
 - Explicit migration runner remains planned; the current database schema stays at version 1.
-- Source capability registry with authorization evidence, timestamps, provenance and fixture-based adapter tests.
+- [x] Local manual-source review catalog with dated references, unknown-access states and preserved custom lot source labels. See [verification](source-registry-verification.md).
+- Provider/account authorization evidence and fixture-based network adapter tests remain pending; the catalog does not establish access or enable an adapter.
 - Model selection and evidence review: condition matching, stale comparable flags, manual range overrides.
 
 Acceptance: take an item from purchase through inspection and a draft listing; correct a cost without losing history; restore a workspace into a clean database.

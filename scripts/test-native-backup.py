@@ -127,6 +127,22 @@ def click(name):
         str(bounds.y + bounds.height // 2), "click", "1"], check=True)
 
 
+def source_summary(name):
+    return next((n for n in nodes() if n.get_name().endswith(name + " Manual entry")
+        and n.get_state_set().contains(Atspi.StateType.VISIBLE)), None)
+
+
+def toggle_source(name):
+    wait(lambda: source_summary(name) is not None, "Missing source summary: " + name)
+    component = source_summary(name).get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    time.sleep(.15)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    assert bounds.width > 0 and bounds.height > 0 and bounds.x >= 0 and bounds.y >= 0
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2),
+        str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+
+
 def chooser_open():
     return any(n.get_role_name() == "file chooser" and visible(n) for n in nodes())
 
@@ -190,6 +206,18 @@ before = core("backup")
 with (args.output / "app.txt").open("w") as log:
     try:
         start(); click("Settings")
+        toggle_source("eBay comparable evidence")
+        wait(lambda: find_button("eBay Browse API") is not None, "Native source references did not expand")
+        find_button("eBay Browse API").get_component_iface().scroll_to(Atspi.ScrollType.ANYWHERE)
+        wait(lambda: "limited release" in text() and "2026-10-28" in text(), "Native source review text/date missing")
+        assert "Browse results must not be treated as completed sales" in text()
+        assert core("backup") == before
+        capture("native-source-registry")
+        checks.append("Native source disclosure shows dated eBay sold/browse distinction and unverified production access without mutating data")
+        toggle_source("eBay comparable evidence")
+        wait(lambda: find_button("eBay Browse API") is None, "Native source disclosure did not collapse")
+        assert core("backup") == before
+        checks.append("Native disclosure closes again; no reference is opened and the isolated workspace remains unchanged")
         choose()
         assert core("backup") == before
         checks.append("Actual GTK file-open Cancel preserves the packaged workspace")

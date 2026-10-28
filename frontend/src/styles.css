@@ -929,6 +929,7 @@ td strong {
 .settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 22px;
   margin-top: 28px;
 }
@@ -944,13 +945,47 @@ td strong {
 .backup-panel dialog p {
   overflow-wrap: anywhere;
 }
-.source-row {
+.source-registry summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 15px 0;
   border-bottom: 1px solid var(--line);
   font-size: 12px;
+  cursor: pointer;
+}
+.source-registry summary::before {
+  content: "+";
+  color: var(--accent);
+}
+.source-registry details[open] summary::before {
+  content: "−";
+}
+.source-registry summary > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.source-registry summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.source-details {
+  padding: 0 0 15px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.source-reference {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  margin-top: 8px;
+}
+.source-reference svg {
+  flex-shrink: 0;
 }
 dialog {
   width: min(760px, calc(100% - 40px));

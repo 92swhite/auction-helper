@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { emptyLot } from "../src/sample";
 
 test("manual auction → evidence → watch → persisted purchase → sale", async ({
   page,
@@ -195,4 +196,161 @@ test("backup download, cancel, stale review and atomic restore persist", async (
     "1 MB limit",
   );
   expect((await invoke("snapshot")).inventory).toEqual(saved.inventory);
+});
+
+test("source review stays offline, separates sold evidence and preserves a custom source", async ({
+  page,
+}, testInfo) => {
+  const externalRequests: string[] = [];
+  page.on("request", (request) => {
+    if (!request.url().startsWith("http://127.0.0.1:1420/"))
+      externalRequests.push(request.url());
+  });
+  const invoke = async (action: string, payload: unknown = null) => {
+    const response = await page.request.post("/api/request", {
+      data: { action, payload },
+    });
+    const result = await response.json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  await invoke("save_lot", {
+    ...emptyLot(),
+    title: "Custom source fixture",
+    source: "Community tool auction 🦆",
+    url: "https://example.com/custom-fixture",
+  });
+  const before = await invoke("backup");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const registry = page.getByRole("region", { name: "Source capabilities" });
+  await expect(registry).toContainText("Automatic discovery");
+  await expect(registry.locator("details")).toHaveCount(8);
+  const ebay = registry
+    .locator("details")
+    .filter({ hasText: "eBay comparable evidence" });
+  const summary = ebay.locator("summary");
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(ebay).toHaveAttribute("open", "");
+  await expect(ebay).toContainText("limited release");
+  await expect(ebay).toContainText(
+    "Choose Sold only for a verified completed sale",
+  );
+  await expect(ebay).toContainText(
+    "Browse results must not be treated as completed sales",
+  );
+  await expect(ebay.locator("time")).toHaveAttribute("datetime", "2026-10-28");
+  await expect(ebay).toContainText(
+    "does not verify this app's production access",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("source-registry-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(summary).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("source-registry-phone.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("Space");
+  await expect(ebay).not.toHaveAttribute("open");
+  for (const name of ["Dickensheet", "PublicSurplus", "GovDeals", "HiBid"]) {
+    const source = registry
+      .locator("details")
+      .filter({ has: page.locator("summary", { hasText: name }) });
+    await source.locator("summary").click();
+    await expect(source).toContainText(
+      /unverified|not been verified|not been reviewed/,
+    );
+    await source.locator("summary").click();
+  }
+  expect(await invoke("backup")).toEqual(before);
+  expect(externalRequests).toEqual([]);
+
+  // Simulate an OS/browser launch error without fetching a provider page.
+  await page.evaluate(() => {
+    window.open = () => {
+      throw new Error("Fixture launch failure");
+    };
+  });
+  await summary.click();
+  await ebay
+    .getByRole("button", { name: "eBay Browse API", exact: true })
+    .click();
+  await expect(registry.getByRole("alert")).toContainText(
+    "could not be opened",
+  );
+  const opened: string[] = [];
+  await page.exposeFunction("captureReference", (url: string) =>
+    opened.push(url),
+  );
+  await page.evaluate(() => {
+    window.open = (url) => {
+      void (
+        window as unknown as { captureReference: (url: string) => void }
+      ).captureReference(String(url));
+      return null;
+    };
+  });
+  await ebay
+    .getByRole("button", { name: "eBay Browse API", exact: true })
+    .click();
+  await expect
+    .poll(() => opened)
+    .toEqual([
+      "https://developer.ebay.com/api-docs/buy/static/api-browse.html",
+    ]);
+  await expect(registry.getByRole("alert")).toHaveCount(0);
+  expect(externalRequests).toEqual([]);
+  expect(await invoke("backup")).toEqual(before);
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole("button", { name: "Opportunities", exact: true })
+    .click();
+  await page
+    .getByRole("heading", {
+      name: "Custom source fixture",
+      exact: true,
+      level: 3,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit selected auction", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("combobox", { name: "Source", exact: true }),
+  ).toHaveValue("Community tool auction 🦆");
+  await expect(
+    dialog
+      .getByRole("combobox", { name: "Source", exact: true })
+      .locator("option"),
+  ).toHaveText([
+    "Manual",
+    "Dickensheet",
+    "PublicSurplus",
+    "GovDeals",
+    "HiBid",
+    "Other",
+    "Community tool auction 🦆",
+  ]);
+  await dialog.getByRole("button", { name: "Save & analyze" }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  const after = await invoke("backup");
+  const lot = after.lots.find(
+    (item: { input: { title: string } }) =>
+      item.input.title === "Custom source fixture",
+  );
+  expect(lot.input.source).toBe("Community tool auction 🦆");
+  expect(after.inventory).toEqual(before.inventory);
+  expect(after.settings).toEqual(before.settings);
 });
