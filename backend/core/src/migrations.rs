@@ -255,7 +255,7 @@ pub(crate) fn initialize(connection: &mut Connection, database: &Path) -> Result
         None => error,
     }
     };
-    apply.map_err(&describe)?;
+    apply.map_err(describe)?;
     transaction
         .commit()
         .map_err(|error| describe(error.to_string()))?;
