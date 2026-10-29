@@ -20,7 +20,7 @@ Rusqlite with bundled SQLite keeps the initial persistence layer small. WAL, for
 
 ## Command contract
 
-Tauri `request(action, payload)` and the development CLI dispatch the same operations. Successful mutations return a complete `Snapshot`.
+Tauri `request(action, payload)` and the development CLI dispatch the same operations. Ordinary mutations return a complete `Snapshot`; restore also returns the automatic recovery file's path.
 
 | Action | Payload | Result |
 |---|---|---|
@@ -31,10 +31,13 @@ Tauri `request(action, payload)` and the development CLI dispatch the same opera
 | `settings` | `Settings` | Snapshot |
 | `purchase` | `{id: lotId, acquisitionCents}` | Snapshot |
 | `sell` | `{id: inventoryId, grossCents, expenseCents}` | Snapshot |
+| `backup` | null | Strict version-one backup of original records and audit history |
+| `validate_backup` | `{text}` | Incoming counts, derived available capital, current audit revision |
+| `restore_backup` | `{text, expectedRevision, confirmReplace: true}` | `{snapshot, recoveryPath}` after recovery-file creation and atomic replacement |
 
 `open_url(url)` is a separate desktop command. It validates HTTP/S URLs, rejects embedded credentials and uses the OS browser. There is no bid-placement command and no marketplace credentials. Content is rendered by React without raw HTML insertion. Production CSP restricts scripts and connections to the packaged app/IPC; no remote scripts, fonts or images are needed.
 
-The authoritative domain types live in `backend/core/src/model.rs`. `schemas/domain.ts` is a manually maintained matching IPC contract for this initial milestone. Browser integration tests exercise that boundary. Automatic generation is planned before expanding the command surface.
+The authoritative domain types live in `backend/core/src/model.rs` and the strict backup envelope/requests in `backend/core/src/backup.rs`. `schemas/domain.ts` remains a manually maintained matching IPC contract. Browser integration tests exercise the actual Rust boundary; type generation remains future work. Backup files contain no derived analysis/totals, and restoration recomputes those values. See [backup/restore design](backup-restore-plan.md) and [user recovery guide](backup-restore.md).
 
 ## Source feasibility decisions
 

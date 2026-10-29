@@ -91,3 +91,17 @@ export interface Snapshot {
   investedCents: number;
   realizedProfitCents: number;
 }
+
+export interface BackupPreview {
+  lotCount: number;
+  inventoryCount: number;
+  soldCount: number;
+  auditCount: number;
+  availableCents: number;
+  currentRevision: number;
+}
+
+export interface RestoreResult {
+  snapshot: Snapshot;
+  recoveryPath: string;
+}

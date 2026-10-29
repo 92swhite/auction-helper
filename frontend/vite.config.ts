@@ -23,9 +23,12 @@ function rustBridge(): Plugin {
           return;
         }
         let body = "";
+        let bytes = 0;
+        req.setEncoding("utf8");
         req.on("data", (chunk) => {
           body += chunk;
-          if (body.length > 2_000_000) req.destroy();
+          bytes += Buffer.byteLength(chunk, "utf8");
+          if (bytes > 8_000_000) req.destroy();
         });
         req.on("end", () => {
           const db =

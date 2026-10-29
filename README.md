@@ -49,7 +49,8 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 
 - Desktop: Tauri's per-user application data directory, `com.92swhite.auction-helper/auction-helper.db` (normally under `~/.local/share` on Linux).
 - Browser development: `.local/browser.db`, or the path in `AUCTION_HELPER_DB`.
-- SQLite uses WAL mode, foreign keys and transactions. For a complete backup, close the app/bridge before copying the database. JSON export is a readable snapshot; restoring/importing it is not yet supported.
+- Settings → Backup & restore downloads a complete, versioned local JSON backup (up to 1 MB), including lot evidence, watch state, inventory, criteria and audit history. Files are validated before a review/confirmation step. Restore is atomic, rejects stale previews and saves a private recovery copy beside the database first. See [backup and recovery](docs/backup-restore.md).
+- The older **Export data** action remains a readable analysis snapshot, not a restorable backup. For workspaces exceeding the JSON limit, close the app/bridge before copying the complete SQLite database.
 - No credentials are collected or stored. The local database is not encrypted; it has the protection of the user's OS account.
 
 ## Scope and limitations

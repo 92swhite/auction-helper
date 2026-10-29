@@ -106,8 +106,8 @@ pub struct LotView {
     pub analysis: Analysis,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InventoryItem {
     pub id: String,
     pub lot_id: String,

@@ -81,8 +81,9 @@ export function SettingsView({
           <ArrowDownToLine size={16} /> Export workspace as JSON
         </button>
         <p className="form-note">
-          Export is a readable snapshot; restore/import is not implemented yet.
-          For a full backup, close the app and copy its SQLite database.
+          This export is a readable analysis snapshot. Use Backup & restore
+          below for a restorable copy, or close the app before copying its
+          SQLite database.
         </p>
       </section>
     </div>

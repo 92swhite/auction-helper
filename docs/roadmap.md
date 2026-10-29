@@ -17,7 +17,8 @@ Acceptance: enter an auction and comparable, obtain a reproducible analysis, wat
 
 - Reversible ledger corrections, additional expense entries, returns and disposal.
 - Inventory stages (pickup, testing, ready to list, listed), inspection notes and user-reviewed listing drafts.
-- Validated backup import/restore and explicit migration runner.
+- [x] Validated JSON backup/restore with preview, atomic replacement, stale-review protection and automatic recovery copies.
+- Explicit migration runner remains planned; the current database schema stays at version 1.
 - Source capability registry with authorization evidence, timestamps, provenance and fixture-based adapter tests.
 - Model selection and evidence review: condition matching, stale comparable flags, manual range overrides.
 
