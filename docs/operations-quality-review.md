@@ -1,6 +1,6 @@
 # Local operations quality review
 
-This is the combined, unpublished review branch for the completed Auction Helper
+This is the combined operations review candidate for the completed Auction Helper
 work beyond backup PR1. It combines the schema/notes/snapshot line at `347a064`
 with the source/evidence line at `3ea8d77`, both descended from published PR1
 head `594275a`. The original branches and every prior checkout remain intact.
@@ -57,8 +57,13 @@ retained as historical evidence, not substituted for these combined checks.
 
 ## Remaining scope
 
-This candidate stays local pending review of the broader publication scope.
-PR1 remains the existing unmerged backup foundation. Windows/macOS and physical
+Publication is approved as a separate review PR based on
+`feat/validated-backup-restore`: PR1 is still the unmerged backup foundation, so
+this base keeps the operations diff separate. Both PRs stay unmerged pending
+explicit approval. After PR1 is integrated, retarget the operations PR to main
+and recheck its diff and exact-head CI. The PR description carries current
+publication/check status rather than changing the historical capture manifests.
+Windows/macOS and physical
 device/human acceptance remain outstanding. Provider/account-specific grants,
 network adapter fixtures, automatic matching/recency decisions and notifications
 are not supplied by the source catalog. Inventory stages/listing drafts and

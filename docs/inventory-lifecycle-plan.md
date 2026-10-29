@@ -1,7 +1,8 @@
 # Inventory lifecycle — bounded next slice for review
 
-Status: **planned, not implemented**. The operations candidate remains local;
-publication/merge decisions belong to the parent. This proposal is grounded in
+Status: **planned, not implemented**. The operations candidate is separately
+authorized for publication; that approval does not authorize lifecycle rules or
+a format change. Merge decisions belong to the parent/user. This proposal is grounded in
 roadmap phase 2: pickup, testing, ready to list and listed. It does not add listing
 publication, valuation logic, costs, returns or financial corrections.
 

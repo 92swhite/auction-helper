@@ -54,5 +54,6 @@ Other limits remain explicit:
   replacement and independent human security/usability review remain outside this
   local validation. No new account or security permission is requested here.
 
-Publication and PR decisions stay pending with the parent. This review does not
-approve the candidate, merge a PR or authorize a lifecycle format change.
+Publication approval is separate from this review. Merge decisions remain with
+the parent/user. This review does not merge a PR or authorize a lifecycle format
+change.

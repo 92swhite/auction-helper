@@ -7,7 +7,8 @@ This is the first usable milestone: manually enter an auction, attach sold-price
 The local operations review branch also combines safe schema initialization,
 inventory inspection notes, consistent workspace reads and source/comparable
 evidence review. See [the integrated review and verification](docs/operations-quality-review.md)
-for its exact scope and package evidence. It remains unpublished for review.
+for its exact scope, package evidence and dependency on the unmerged backup PR.
+Current publication and CI status are recorded on the operations PR.
 
 ![Auction Helper with fictional demonstration data](docs/preview.png)
 
