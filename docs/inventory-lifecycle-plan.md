@@ -20,20 +20,21 @@ Neither choosing Listed nor Ready to list contacts a marketplace or certifies
 the item. No stage selection places a bid, records a sale, reserves capital,
 changes the ledger or claims that a physical action occurred automatically.
 
-## Decisions to resolve before implementation
+## Two decisions to resolve before implementation
 
-- Confirm label meaning: does “pickup” mean **needs pickup**? The roadmap does
-  not specify whether it instead records pickup completed. Avoid implementing
-  the opposite meaning by assumption.
-- Confirm how manual corrections/backward stage changes should be exposed, and
-  whether sold items should show their last recorded stage or hide it behind
-  the authoritative Sold status. Do not invent a forced progression or a way
-  to reopen a completed financial sale.
-- Confirm that v1 imports and existing inventory should start **unreviewed**.
-  They contain no structured evidence of lifecycle completion.
+1. **Stage meaning and manual corrections.** Recommended: label the first stage
+   **Needs pickup**, followed by Testing, Ready to list and Listed. Let the user
+   explicitly choose any stage or correct it backward, retaining audit history;
+   do not force a sequence or infer completion from other data.
+2. **Unknown and sold inventory.** Recommended: existing items, v1 imports and new
+   purchases start **Unreviewed** until the user chooses a stage. A recorded sale
+   remains the authoritative Sold status; retain the last stage as read-only
+   history, without reopening a financial sale through the stage selector.
 
-These are proposed product choices, not newly imposed business rules. Existing
-inspection notes remain usable while they are unresolved.
+The parent can present these as two concrete defaults to accept or change. They
+are recommendations, not implemented business rules. The version-two recovery
+and compatibility work below is an engineering gate, not an additional product
+question. Existing inspection notes remain usable while these are unresolved.
 
 ## Data and compatibility boundary
 
