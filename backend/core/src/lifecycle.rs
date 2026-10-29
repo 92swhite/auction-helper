@@ -91,3 +91,56 @@ pub(crate) fn set_stage(connection: &Connection, payload: Value, now: &str) -> R
     connection.execute("INSERT INTO inventory_stage_events(audit_id,inventory_id,from_stage,to_stage) VALUES(?1,?2,?3,?4)", params![audit_id,request.id,previous,request.stage.as_str()]).map_err(|error| error.to_string())?;
     Ok(())
 }
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+    use crate::Store;
+    use serde_json::json;
+
+    #[test]
+    fn failed_commit_rolls_back_before_snapshot_and_retry_in_a_persistent_store() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("commit-failure.db");
+        let mut store = Store::open(&path).unwrap();
+        let text = include_str!("../tests/fixtures/backup-v1-published-594275a.json");
+        store
+            .dispatch(
+                "restore_backup",
+                json!({"text":text,"expectedRevision":0,"confirmReplace":true}),
+            )
+            .unwrap();
+        // A real rollback-journal reader permits BEGIN IMMEDIATE and the writes,
+        // but prevents COMMIT from obtaining the exclusive lock it needs.
+        store
+            .conn
+            .pragma_update(None, "journal_mode", "DELETE")
+            .unwrap();
+        store.conn.busy_timeout(std::time::Duration::ZERO).unwrap();
+        let before = store.dispatch("snapshot", Value::Null).unwrap();
+        let item = before["inventory"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["soldAt"].is_null())
+            .unwrap();
+        let payload =
+            json!({"id":item["id"],"stage":"testing","expectedRevision":before["revision"]});
+        let reader = Connection::open(&path).unwrap();
+        reader
+            .execute_batch("BEGIN; SELECT COUNT(*) FROM inventory;")
+            .unwrap();
+        let error = store
+            .dispatch("inventory_stage", payload.clone())
+            .unwrap_err();
+        assert!(error.contains("locked"), "{error}");
+        assert!(store.conn.is_autocommit(),"A failed COMMIT must not leave uncommitted stage/history visible in the persistent store");
+        assert_eq!(store.dispatch("snapshot", Value::Null).unwrap(), before);
+        reader.execute_batch("ROLLBACK").unwrap();
+        let saved = store.dispatch("inventory_stage", payload).unwrap();
+        assert_eq!(saved["stageHistory"].as_array().unwrap().len(), 1);
+        drop(store);
+        let reopened = Store::open(&path).unwrap();
+        assert_eq!(reopened.snapshot().unwrap().stage_history.len(), 1);
+    }
+}

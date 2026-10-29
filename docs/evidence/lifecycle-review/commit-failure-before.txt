@@ -1,0 +1,22 @@
+   Compiling auction-core v0.1.0 (/home/spenser/Documents/Codex/2026-10-28/task/auction-helper-lifecycle/backend/core)
+    Finished `test` profile [unoptimized] target(s) in 0.79s
+     Running unittests src/lib.rs (.local/target/debug/deps/auction_core-0cce80db2076263d)
+
+running 1 test
+test lifecycle::review_tests::failed_commit_rolls_back_before_snapshot_and_retry_in_a_persistent_store ... FAILED
+
+failures:
+
+---- lifecycle::review_tests::failed_commit_rolls_back_before_snapshot_and_retry_in_a_persistent_store stdout ----
+
+thread 'lifecycle::review_tests::failed_commit_rolls_back_before_snapshot_and_retry_in_a_persistent_store' (204) panicked at backend/core/src/lifecycle.rs:119:9:
+A failed COMMIT must not leave uncommitted stage/history visible in the persistent store
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    lifecycle::review_tests::failed_commit_rolls_back_before_snapshot_and_retry_in_a_persistent_store
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p auction-core --lib`

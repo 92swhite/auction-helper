@@ -1,0 +1,22 @@
+   Compiling auction-core v0.1.0 (/home/spenser/Documents/Codex/2026-10-28/task/auction-helper-lifecycle/backend/core)
+    Finished `test` profile [unoptimized] target(s) in 0.92s
+     Running tests/migrations.rs (.local/target/debug/deps/migrations-37fcf045778c569a)
+
+running 1 test
+test version_two_schema_comparison_preserves_case_sensitive_check_literals ... FAILED
+
+failures:
+
+---- version_two_schema_comparison_preserves_case_sensitive_check_literals stdout ----
+
+thread 'version_two_schema_comparison_preserves_case_sensitive_check_literals' (299) panicked at backend/core/tests/migrations.rs:52:5:
+Different case-sensitive stage CHECK literals are not the supported schema
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    version_two_schema_comparison_preserves_case_sensitive_check_literals
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p auction-core --test migrations`

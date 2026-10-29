@@ -545,3 +545,143 @@ fn upgrade_refuses_recovery_symlink_without_writing_the_destination() {
     assert_eq!(std::fs::read(&path).unwrap(), before);
     assert_eq!(std::fs::read_dir(destination.path()).unwrap().count(), 0);
 }
+
+#[test]
+fn concurrent_stage_and_sale_writers_preserve_sale_precedence_and_audit_order() {
+    use std::sync::{Arc, Barrier};
+    let mut stage_first = 0;
+    let mut sale_first = 0;
+    for index in 0..8 {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("race.db");
+        let (mut first, initial, id) = fixture(&path);
+        let mut second = Store::open(&path).unwrap();
+        let stage_id = id.clone();
+        let sale_id = id.clone();
+        let revision = initial["revision"].clone();
+        let gate = Arc::new(Barrier::new(3));
+        let stage_gate = gate.clone();
+        let sale_gate = gate.clone();
+        let stage_writer = std::thread::spawn(move || {
+            stage_gate.wait();
+            if index % 2 == 0 {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            stage(&mut first, &stage_id, "testing", &revision)
+        });
+        let sale_writer = std::thread::spawn(move || {
+            sale_gate.wait();
+            if index % 2 == 1 {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            second.dispatch(
+                "sell",
+                json!({"id":sale_id,"grossCents":10000,"expenseCents":1000}),
+            )
+        });
+        gate.wait();
+        let stage_result = stage_writer.join().unwrap();
+        sale_writer.join().unwrap().unwrap();
+        let mut reopened = Store::open(&path).unwrap();
+        let actual = backup(&mut reopened);
+        let item = actual["inventory"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["id"] == id)
+            .unwrap();
+        assert_eq!(item["saleNetCents"], 9000);
+        assert!(item["soldAt"].is_string());
+        if let Err(error) = stage_result {
+            sale_first += 1;
+            assert!(error.contains("Sold"));
+            assert!(actual["stageEvents"].as_array().unwrap().is_empty());
+        } else {
+            stage_first += 1;
+            assert_eq!(actual["stageEvents"].as_array().unwrap().len(), 1);
+            let audit = &actual["stageEvents"][0]["auditId"];
+            let sale = actual["auditEvents"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|event| event["action"] == "sell" && event["subjectId"] == id)
+                .unwrap();
+            assert!(audit.as_i64().unwrap() < sale["id"].as_i64().unwrap());
+        }
+        let current = reopened.dispatch("snapshot", Value::Null).unwrap();
+        assert!(stage(&mut reopened, &id, "listed", &current["revision"])
+            .unwrap_err()
+            .contains("Sold"));
+        assert_eq!(backup(&mut reopened), actual);
+    }
+    println!("Observed eight actual two-writer races: stage-first={stage_first}, sale-first={sale_first}. Delays vary launch ordering; they are not response-time criteria.");
+}
+
+#[test]
+fn malformed_stage_audit_chains_are_refused_without_recovery_or_record_writes() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(&dir.path().join("malformed.db")).unwrap();
+    let before = backup(&mut store);
+    let source: Value =
+        serde_json::from_str(include_str!("fixtures/backup-v2-lifecycle.json")).unwrap();
+    let mut cases = Vec::new();
+    let mut value = source.clone();
+    value["stageEvents"][0]["toStage"] = json!("unknown");
+    cases.push(value);
+    let mut value = source.clone();
+    let duplicate = value["stageEvents"][0].clone();
+    value["stageEvents"].as_array_mut().unwrap().push(duplicate);
+    cases.push(value);
+    let mut value = source.clone();
+    value["stageEvents"][0]["auditId"] = json!(1);
+    cases.push(value);
+    let mut value = source.clone();
+    value["stageEvents"][0]["inventoryId"] = json!(uuid::Uuid::new_v4().to_string());
+    cases.push(value);
+    let mut value = source.clone();
+    value["stageEvents"][0]["unexpected"] = json!(true);
+    cases.push(value);
+    let mut value = source.clone();
+    value["lifecycle"] = Value::Null;
+    cases.push(value);
+    let mut value = source.clone();
+    let old_id = value["stageEvents"][1]["auditId"].clone();
+    value["stageEvents"][1]["auditId"] = json!(1000);
+    let audit = value["auditEvents"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|event| event["id"] == old_id)
+        .unwrap();
+    audit["id"] = json!(1000);
+    let late = value.clone();
+    cases.push(value);
+    for value in cases {
+        let text = value.to_string();
+        assert!(store
+            .dispatch("validate_backup", json!({"text":text}))
+            .is_err());
+        assert!(store
+            .dispatch(
+                "restore_backup",
+                json!({"text":text,"expectedRevision":0,"confirmReplace":true})
+            )
+            .is_err());
+        assert_eq!(backup(&mut store), before);
+        assert!(!dir.path().join("backups").exists());
+    }
+    assert!(store
+        .dispatch("validate_backup", json!({"text":late.to_string()}))
+        .unwrap_err()
+        .contains("after a recorded sale"));
+    let duplicate_field = source.to_string().replacen(
+        "\"toStage\":\"listed\"",
+        "\"toStage\":\"listed\",\"toStage\":\"listed\"",
+        1,
+    );
+    assert_ne!(duplicate_field, source.to_string());
+    assert!(store
+        .dispatch("validate_backup", json!({"text":duplicate_field}))
+        .is_err());
+    assert_eq!(backup(&mut store), before);
+}

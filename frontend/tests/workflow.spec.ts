@@ -815,3 +815,78 @@ test("stale stage review preserves its draft and a concurrent sale freezes stage
   });
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
 });
+
+test("lost stage response retains the draft and retry cannot duplicate committed history", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const invoke = async (action: string, payload: unknown = null) => {
+    const result = await (
+      await page.request.post("/api/request", { data: { action, payload } })
+    ).json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  const title = "Lifecycle lost-response fixture";
+  const saved = await invoke("save_lot", {
+    ...emptyLot(),
+    title,
+    url: "https://example.com/lost-response",
+  });
+  const lot = saved.lots.find(
+    (entry: { input: { title: string } }) => entry.input.title === title,
+  );
+  const purchased = await invoke("purchase", {
+    id: lot.input.id,
+    acquisitionCents: 1000,
+  });
+  const item = purchased.inventory.find(
+    (entry: { lotId: string }) => entry.lotId === lot.input.id,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  const open = () =>
+    page
+      .getByRole("button", { name: `Review stage for ${title}`, exact: true })
+      .click();
+  const dialog = page.getByRole("dialog", { name: "Inventory stage" });
+  await open();
+  await dialog.getByLabel("Operational stage").selectOption("testing");
+  let interrupted = false;
+  await page.route("**/api/request", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.action === "inventory_stage" && !interrupted) {
+      // The real Rust/SQLite mutation commits; only its browser response is lost.
+      const response = await route.fetch();
+      const result = await response.json();
+      expect(result.error).toBeUndefined();
+      interrupted = true;
+      await route.abort("failed");
+    } else await route.continue();
+  });
+  await dialog.getByRole("button", { name: "Save stage", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByLabel("Operational stage")).toHaveValue("testing");
+  await expect(dialog).toContainText("Unreviewed → Testing");
+  const committed = await invoke("backup");
+  expect(
+    committed.stageEvents.filter(
+      (entry: { inventoryId: string }) => entry.inventoryId === item.id,
+    ),
+  ).toHaveLength(1);
+  await dialog.getByRole("button", { name: "Save stage", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("changed since");
+  await expect(dialog.getByLabel("Operational stage")).toHaveValue("testing");
+  expect(await invoke("backup")).toEqual(committed);
+  await page.screenshot({
+    path: testInfo.outputPath("lifecycle-lost-response.png"),
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await open();
+  await expect(dialog.getByLabel("Operational stage")).toHaveValue("testing");
+  await expect(
+    dialog.getByRole("button", { name: "Save stage", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+});

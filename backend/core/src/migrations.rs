@@ -49,10 +49,33 @@ fn empty_before_initialization(connection: &Connection) -> Result<()> {
 }
 
 fn normalize(sql: &str) -> String {
-    sql.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_lowercase()
+    // SQL keywords are case-insensitive; CHECK/default string literals are not.
+    // Preserve quoted bytes (including whitespace and doubled SQL quotes).
+    let mut normalized = String::new();
+    let mut quote = None;
+    let mut space = false;
+    for character in sql.chars() {
+        if let Some(delimiter) = quote {
+            normalized.push(character);
+            if character == delimiter {
+                quote = None;
+            }
+        } else if character.is_whitespace() {
+            space = true;
+        } else {
+            if space && !normalized.is_empty() {
+                normalized.push(' ');
+            }
+            space = false;
+            if matches!(character, '\'' | '"' | '`') {
+                quote = Some(character);
+                normalized.push(character);
+            } else {
+                normalized.push(character.to_ascii_lowercase());
+            }
+        }
+    }
+    normalized
 }
 
 fn validate_existing(connection: &Connection, schema_version: i64) -> Result<()> {

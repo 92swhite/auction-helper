@@ -1,5 +1,11 @@
 # Inventory lifecycle — local implementation and verification
 
+A subsequent [separate safety review](inventory-lifecycle-review.md) fixed two
+demonstrated defects and records current verification: 45 Rust tests, nine browser
+journeys, 22 native package checks and 16 simulated process/fault cases. Evidence
+below describes the initial implementation capture; the review has its own
+package/source manifest and explicit remaining acceptance limits.
+
 Implemented on `feat/inventory-lifecycle-v2`, based on the reviewed operations
 commit `95087d0d1424b1c515252b35e6eb30ad4f882a10`. This is a separate local slice;
 published operations PR2 is unchanged. Publication, integration and deployment

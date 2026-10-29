@@ -8,7 +8,9 @@ pub mod valuation;
 
 use chrono::Utc;
 use model::*;
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use rusqlite::{
+    params, Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior,
+};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use valuation::*;
@@ -179,22 +181,14 @@ impl Store {
             )?)
             .map_err(|e| e.to_string());
         }
-        self.conn
-            .execute_batch("BEGIN IMMEDIATE")
-            .map_err(|e| e.to_string())?;
-        let result = self.mutate(action, payload);
-        match result {
-            Ok(()) => {
-                self.conn
-                    .execute_batch("COMMIT")
-                    .map_err(|e| e.to_string())?;
-                serde_json::to_value(self.snapshot()?).map_err(|e| e.to_string())
-            }
-            Err(err) => {
-                let _ = self.conn.execute_batch("ROLLBACK");
-                Err(err)
-            }
-        }
+        // RAII also rolls back when COMMIT itself fails (for example SQLITE_BUSY
+        // behind a rollback-journal reader), before a persistent desktop store
+        // can expose its own uncommitted stage or audit rows on error refresh.
+        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)
+            .map_err(|error| error.to_string())?;
+        self.mutate(action, payload)?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        serde_json::to_value(self.snapshot()?).map_err(|error| error.to_string())
     }
 
     fn mutate(&self, action: &str, payload: Value) -> Result<()> {
