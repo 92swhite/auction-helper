@@ -1,0 +1,22 @@
+{
+  "capturedAtUtc": "2026-10-29T01:47:25.084670+00:00",
+  "reviewBase": "f0d1af64c76b1d2c83b5c8505cc2eab56764ccf2",
+  "reviewKind": "Separate review pass by implementing agent; not independent human review",
+  "demonstratedDefectsFixed": [
+    "Persistent mutation transaction remained open after COMMIT failure",
+    "Schema normalization folded case-sensitive quoted CHECK literals"
+  ],
+  "rustTests": 45,
+  "browserJourneys": 9,
+  "browserDurationSeconds": 27.7,
+  "nativeChecks": 22,
+  "simulatedFailureCases": 16,
+  "simulatedFailureIsPowerLossProof": false,
+  "runtimeSourceHashesMatched": 45,
+  "raceOutcomes": {
+    "stageFirst": 4,
+    "saleFirst": 4
+  },
+  "published": false,
+  "ownerDatabaseOpened": false
+}

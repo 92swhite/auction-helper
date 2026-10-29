@@ -134,7 +134,7 @@ fn invalid_files_are_rejected_before_any_workspace_or_recovery_write() {
     let source = fixture();
     let mut cases = Vec::new();
     let mut v = source.clone();
-    v["formatVersion"] = json!(2);
+    v["formatVersion"] = json!(3);
     cases.push(v);
     let mut v = source.clone();
     v["unexpected"] = json!(true);

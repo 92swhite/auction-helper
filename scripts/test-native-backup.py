@@ -24,6 +24,7 @@ parser.add_argument("--output", required=True, type=Path)
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument("--check-schema-refusal", action="store_true")
 mode.add_argument("--check-inventory-notes", action="store_true")
+mode.add_argument("--check-inventory-lifecycle", action="store_true")
 parser.add_argument("--fixture", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
 for key in ["application", "core", "ui_tool", "output"]:
@@ -36,8 +37,11 @@ if args.fixture is None:
     (args.output / "native-report.json").unlink(missing_ok=True)
     (args.output / "native-schema-report.json").unlink(missing_ok=True)
     (args.output / "native-inventory-report.json").unlink(missing_ok=True)
+    (args.output / "native-lifecycle-report.json").unlink(missing_ok=True)
     (args.output / "failure.txt").unlink(missing_ok=True)
-    with tempfile.TemporaryDirectory(prefix="auction-native-backup-", dir=args.output, ignore_cleanup_errors=True) as temporary:
+    # Unix-domain sockets used by accessibility/portals have a short path limit.
+    # Keep the isolated runtime short even when the requested report path is long.
+    with tempfile.TemporaryDirectory(prefix="auction-native-backup-", ignore_cleanup_errors=True) as temporary:
         fixture = Path(temporary)
         for name in ["config", "downloads", "runtime"]:
             (fixture / name).mkdir(mode=0o700)
@@ -51,6 +55,8 @@ if args.fixture is None:
             command.append("--check-schema-refusal")
         if args.check_inventory_notes:
             command.append("--check-inventory-notes")
+        if args.check_inventory_lifecycle:
+            command.append("--check-inventory-lifecycle")
         process = subprocess.Popen(command, env=env, start_new_session=True)
         result = process.wait()
         try:
@@ -189,6 +195,7 @@ def capture(name):
     image = Gdk.pixbuf_get_from_window(window, 0, 0, window.get_width(), window.get_height())
     image.savev(str(args.output / (name + ".png")), "png", [], [])
     (args.output / (name + "-text.txt")).write_text(text())
+    (args.output / (name + "-accessibility.json")).write_text(json.dumps([{"role": node.get_role_name(), "name": node.get_name()} for node in nodes() if visible(node)], indent=2) + "\n")
 
 
 def notes_control():
@@ -243,14 +250,122 @@ def lot(title):
 # Both the application and all D-Bus-activated services inherit these disposable paths.
 from gi.repository import GLib
 assert Path(GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)) == fixture / "downloads"
-for title in ["Sold native fixture", "Held native fixture", "Watched native fixture"]:
-    core("save_lot", lot(title))
-ids = {item["input"]["title"]: item["input"]["id"] for item in core("snapshot")["lots"]}
-core("watch", {"id": ids["Watched native fixture"], "watched": True})
-purchased = core("purchase", {"id": ids["Sold native fixture"], "acquisitionCents": 10000})
-core("sell", {"id": purchased["inventory"][0]["id"], "grossCents": 20000, "expenseCents": 1500})
-core("purchase", {"id": ids["Held native fixture"], "acquisitionCents": 5000})
-before = core("backup")
+if args.check_inventory_lifecycle:
+    db.parent.mkdir(parents=True, exist_ok=True)
+    fixtures = Path(__file__).resolve().parents[1] / "backend/core/tests/fixtures"
+    with sqlite3.connect(db) as connection:
+        connection.executescript((fixtures / "workspace-v1-published-594275a.sql").read_text())
+    before = json.loads((fixtures / "backup-v1-published-594275a.json").read_text())
+else:
+    for title in ["Sold native fixture", "Held native fixture", "Watched native fixture"]:
+        core("save_lot", lot(title))
+    ids = {item["input"]["title"]: item["input"]["id"] for item in core("snapshot")["lots"]}
+    core("watch", {"id": ids["Watched native fixture"], "watched": True})
+    purchased = core("purchase", {"id": ids["Sold native fixture"], "acquisitionCents": 10000})
+    core("sell", {"id": purchased["inventory"][0]["id"], "grossCents": 20000, "expenseCents": 1500})
+    core("purchase", {"id": ids["Held native fixture"], "acquisitionCents": 5000})
+    before = core("backup")
+
+if args.check_inventory_lifecycle:
+    def stage_control():
+        return next((node for node in nodes() if visible(node) and node.get_role_name() == "combo box" and node.get_name().startswith("Operational stage")), None)
+
+    def choose_stage(index):
+        wait(lambda: stage_control() is not None, "Native operational-stage selector missing")
+        component = stage_control().get_component_iface()
+        component.scroll_to(Atspi.ScrollType.ANYWHERE)
+        bounds = component.get_extents(Atspi.CoordType.SCREEN)
+        subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2), str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+        subprocess.run([str(args.ui_tool), "key", "--clearmodifiers", "Home", *(["Down"] * index), "Return"], check=True)
+
+    def selected_stage():
+        control = stage_control()
+        if control is None:
+            return None
+        selection = control.get_selection_iface()
+        if selection and Atspi.Selection.get_n_selected_children(selection):
+            return Atspi.Selection.get_selected_child(selection, 0).get_name()
+        # WebKit exposes the collapsed select value in its accessible name.
+        label = control.get_name().removeprefix("Operational stage ")
+        if label in ["Unreviewed", "Needs pickup", "Testing", "Ready to list", "Listed"]:
+            return label
+        return next((node.get_name() for node in nodes(control) if node.get_state_set().contains(Atspi.StateType.SELECTED)), None)
+
+    def saved_stage(value):
+        return next(state["stage"] for state in value["lifecycle"] if state["inventoryId"] == item["id"])
+
+    item = next(value for value in before["inventory"] if value["soldAt"] is None)
+    with (args.output / "app.txt").open("w") as log:
+        try:
+            start()
+            wait(lambda: "Workspace upgraded for inventory stages" in text(), "Native upgrade recovery notice missing")
+            copies = list((db.parent / "backups").glob("before-upgrade-v1-*.sqlite"))
+            assert len(copies) == 1
+            with sqlite3.connect(copies[0]) as connection:
+                assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+                assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            upgraded = core("backup")
+            for key in ["settings", "lots", "inventory", "auditEvents"]:
+                assert upgraded[key] == before[key], key
+            capture("native-lifecycle-upgrade")
+            click("Inventory"); click("Review stage for " + item["title"])
+            choose_stage(2); click("Cancel")
+            assert core("backup") == upgraded
+            click("Review stage for " + item["title"]); choose_stage(4); click("Save stage")
+            wait(lambda: find_button("Close dialog") is None, "Native stage save did not close")
+            assert saved_stage(core("backup")) == "listed"
+            click("Review stage for " + item["title"]); choose_stage(2); click("Save stage")
+            wait(lambda: find_button("Close dialog") is None, "Native backward correction did not close")
+            corrected = core("backup")
+            assert saved_stage(corrected) == "testing" and len(corrected["stageEvents"]) == 2
+            for key in ["settings", "lots", "inventory"]:
+                assert corrected[key] == upgraded[key]
+            click("Review stage for " + item["title"])
+            capture("native-lifecycle-correction")
+            choose_stage(1)
+            current = core("snapshot")
+            core("inventory_stage", {"id": item["id"], "stage": "ready_to_list", "expectedRevision": current["revision"]})
+            click("Save stage")
+            wait(lambda: "changed since you opened this stage" in text(), "Native stale-stage refusal missing")
+            assert selected_stage() == "Needs pickup", repr(selected_stage())
+            capture("native-lifecycle-stale")
+            click("Cancel"); click("Review stage for " + item["title"])
+            assert selected_stage() == "Ready to list", repr(selected_stage())
+            choose_stage(4)
+            core("sell", {"id": item["id"], "grossCents": 10000, "expenseCents": 1000})
+            click("Save stage")
+            wait(lambda: "This item is Sold" in text() and stage_control() is None, "Native sale precedence/read-only history missing")
+            assert find_button("Save stage") is None
+            capture("native-lifecycle-sold")
+            sold = core("backup")
+            assert saved_stage(sold) == "ready_to_list" and len(sold["stageEvents"]) == 3
+            click("Close"); stop(); start(); click("Inventory"); click("Review stage for " + item["title"])
+            wait(lambda: "This item is Sold" in text(), "Native sold history did not survive restart")
+            assert find_button("Save stage") is None and core("backup") == sold
+            click("Close"); click("Settings")
+            old_file = fixture / "published-v1.json"
+            old_file.write_text(json.dumps(before))
+            choose(old_file)
+            wait(lambda: "All imported items will begin Unreviewed" in text(), "Native v1-import stage mapping preview missing")
+            capture("native-lifecycle-v1-preview")
+            click("Cancel")
+            assert core("backup") == sold
+            result = {"status": "passed", "applicationSha256": hashlib.sha256(args.application.read_bytes()).hexdigest(),
+                "checks": ["Packaged native startup upgrades actual v1 fixture with visible verified recovery and preserved records", "Native stage cancel leaves data unchanged", "Native Listed-to-Testing correction preserves ledger and complete history", "Native stale-stage refusal retains the selected draft and reopens latest state", "Concurrent sale makes last stage/history read-only across packaged process restart", "Actual GTK chooser previews v1 Unreviewed mapping and cancellation preserves v2 history"],
+                "fixture": "Disposable v1 SQLite/XDG/Xvfb/D-Bus; normal packaged launch and actual pointer/keyboard events; no backend mock"}
+            (args.output / "native-lifecycle-report.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result, indent=2), flush=True)
+        except Exception as error:
+            (args.output / "failure.txt").write_text(repr(error) + "\n")
+            if app is not None:
+                try:
+                    capture("native-failure")
+                except Exception:
+                    pass
+            raise
+        finally:
+            stop()
+    raise SystemExit(0)
 
 if args.check_inventory_notes:
     item = next(value for value in before["inventory"] if value["title"] == "Held native fixture")
@@ -311,6 +426,7 @@ if args.check_inventory_notes:
 
 if args.check_schema_refusal:
     with sqlite3.connect(db) as connection:
+        original_schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
         connection.execute("CREATE TABLE future_notes(value TEXT)")
         connection.execute("INSERT INTO future_notes VALUES('Synthetic future data')")
         connection.execute("PRAGMA user_version=9")
@@ -328,7 +444,7 @@ if args.check_schema_refusal:
                 assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
                 assert connection.execute("SELECT value FROM future_notes").fetchone()[0] == "Synthetic future data"
                 # Only the disposable fixture is corrected externally to exercise Retry.
-                connection.execute("PRAGMA user_version=1")
+                connection.execute(f"PRAGMA user_version={original_schema_version}")
             click("Retry")
             wait(lambda: find_button("Add auction") is not None, "Retry did not reopen the compatible fixture")
             click("Inventory")

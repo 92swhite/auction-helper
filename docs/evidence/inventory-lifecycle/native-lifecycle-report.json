@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "applicationSha256": "3001b8c110f3d68917b440f7ae39fef3902cbebcdb86f55893a36fb1608050a3",
+  "checks": [
+    "Packaged native startup upgrades actual v1 fixture with visible verified recovery and preserved records",
+    "Native stage cancel leaves data unchanged",
+    "Native Listed-to-Testing correction preserves ledger and complete history",
+    "Native stale-stage refusal retains the selected draft and reopens latest state",
+    "Concurrent sale makes last stage/history read-only across packaged process restart",
+    "Actual GTK chooser previews v1 Unreviewed mapping and cancellation preserves v2 history"
+  ],
+  "fixture": "Disposable v1 SQLite/XDG/Xvfb/D-Bus; normal packaged launch and actual pointer/keyboard events; no backend mock"
+}

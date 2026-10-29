@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::OpenOptions,
     io::Write,
     path::{Path, PathBuf},
@@ -17,6 +17,23 @@ const MAX_REVISION: i64 = 1_000_000_000_000;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Backup {
+    app: String,
+    format_version: u32,
+    settings: Settings,
+    lots: Vec<BackupLot>,
+    inventory: Vec<InventoryItem>,
+    audit_events: Vec<AuditEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lifecycle: Option<Vec<LifecycleState>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stage_events: Option<Vec<StageEvent>>,
+}
+
+// Parse v1 with its original exact field contract too: even null lifecycle
+// fields must not be silently accepted as a version-one extension.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct VersionOneBackup {
     app: String,
     format_version: u32,
     settings: Settings,
@@ -74,21 +91,64 @@ fn revision(conn: &Connection) -> Result<i64> {
     .map_err(|e| e.to_string())
 }
 
-fn parse(text: &str) -> Result<Backup> {
+struct ParsedBackup {
+    backup: Backup,
+    source_version: u32,
+}
+
+fn parse(text: &str) -> Result<ParsedBackup> {
     if text.len() > MAX_BACKUP_BYTES {
         return Err("Backup exceeds the 1 MB limit.".into());
     }
-    let backup: Backup =
+    let mut backup: Backup =
         serde_json::from_str(text).map_err(|e| format!("Invalid backup JSON: {e}"))?;
+    if backup.format_version == 1 {
+        let legacy: VersionOneBackup = serde_json::from_str(text)
+            .map_err(|error| format!("Invalid version-one backup: {error}"))?;
+        backup = Backup {
+            app: legacy.app,
+            format_version: legacy.format_version,
+            settings: legacy.settings,
+            lots: legacy.lots,
+            inventory: legacy.inventory,
+            audit_events: legacy.audit_events,
+            lifecycle: None,
+            stage_events: None,
+        };
+    }
     validate(&backup)?;
-    Ok(backup)
+    let source_version = backup.format_version;
+    if source_version == 1 {
+        backup.lifecycle = Some(
+            backup
+                .inventory
+                .iter()
+                .map(|item| LifecycleState {
+                    inventory_id: item.id.clone(),
+                    stage: InventoryStage::Unreviewed,
+                })
+                .collect(),
+        );
+        backup.stage_events = Some(Vec::new());
+        backup.format_version = 2;
+    }
+    Ok(ParsedBackup {
+        backup,
+        source_version,
+    })
 }
 
 fn validate(backup: &Backup) -> Result<i64> {
-    if backup.app != "auction-helper" || backup.format_version != 1 {
+    if backup.app != "auction-helper" || !(1..=2).contains(&backup.format_version) {
         return Err(
-            "Unsupported backup format. Choose an Auction Helper version-one backup.".into(),
+            "Unsupported backup format. Choose an Auction Helper version-one or version-two backup.".into(),
         );
+    }
+    if backup.format_version == 1 && (backup.lifecycle.is_some() || backup.stage_events.is_some()) {
+        return Err("Version-one backups cannot contain lifecycle fields.".into());
+    }
+    if backup.format_version == 2 && (backup.lifecycle.is_none() || backup.stage_events.is_none()) {
+        return Err("Version-two backups require lifecycle states and stage events.".into());
     }
     if backup.lots.len() > MAX_RECORDS
         || backup.inventory.len() > MAX_RECORDS
@@ -148,6 +208,9 @@ fn validate(backup: &Backup) -> Result<i64> {
         let valid = match event.action.as_str() {
             "save_lot" | "watch" => lots.contains(event.subject_id.as_str()),
             "purchase" | "sell" => inventory.contains(event.subject_id.as_str()),
+            "inventory_stage" if backup.format_version == 2 => {
+                inventory.contains(event.subject_id.as_str())
+            }
             "settings" => event.subject_id == "settings",
             "restore_backup" => event.subject_id == "workspace",
             _ => false,
@@ -156,11 +219,90 @@ fn validate(backup: &Backup) -> Result<i64> {
             return Err("Backup contains an invalid audit action or reference.".into());
         }
     }
+    if backup.format_version == 2 {
+        validate_lifecycle(backup, &inventory)?;
+    }
     // The bounded record count and money limits keep all aggregate arithmetic in i64.
     for lot in &backup.lots {
         analyze(&lot.input, &backup.settings, available.max(0))?;
     }
     Ok(available)
+}
+
+fn validate_lifecycle(backup: &Backup, inventory: &HashSet<&str>) -> Result<()> {
+    let states = backup
+        .lifecycle
+        .as_ref()
+        .ok_or("Lifecycle states are missing.")?;
+    let events = backup
+        .stage_events
+        .as_ref()
+        .ok_or("Stage events are missing.")?;
+    if states.len() != inventory.len() || events.len() > MAX_RECORDS {
+        return Err("Backup lifecycle record counts are invalid.".into());
+    }
+    let mut current = HashMap::new();
+    for state in states {
+        if !inventory.contains(state.inventory_id.as_str())
+            || current
+                .insert(state.inventory_id.as_str(), state.stage)
+                .is_some()
+        {
+            return Err(
+                "Backup lifecycle contains duplicate or missing inventory references.".into(),
+            );
+        }
+    }
+    let audits: HashMap<_, _> = backup
+        .audit_events
+        .iter()
+        .map(|event| (event.id, event))
+        .collect();
+    let mut replay: HashMap<_, _> = inventory
+        .iter()
+        .map(|id| (*id, InventoryStage::Unreviewed))
+        .collect();
+    let mut ids = HashSet::new();
+    let mut ordered: Vec<_> = events.iter().collect();
+    ordered.sort_by_key(|event| event.audit_id);
+    for event in ordered {
+        let audit = audits
+            .get(&event.audit_id)
+            .ok_or("Stage history refers to missing audit history.")?;
+        let previous = replay
+            .get_mut(event.inventory_id.as_str())
+            .ok_or("Stage history refers to missing inventory.")?;
+        if !ids.insert(event.audit_id)
+            || audit.action != "inventory_stage"
+            || audit.subject_id != event.inventory_id
+            || *previous != event.from_stage
+            || event.from_stage == event.to_stage
+        {
+            return Err(
+                "Backup stage history is inconsistent with its audit trail or transition chain."
+                    .into(),
+            );
+        }
+        if backup.audit_events.iter().any(|entry| {
+            entry.action == "sell"
+                && entry.subject_id == event.inventory_id
+                && entry.id < event.audit_id
+        }) {
+            return Err(
+                "Backup contains an operational stage change after a recorded sale.".into(),
+            );
+        }
+        *previous = event.to_stage;
+    }
+    if current != replay
+        || backup
+            .audit_events
+            .iter()
+            .any(|event| event.action == "inventory_stage" && !ids.contains(&event.id))
+    {
+        return Err("Backup current stages and complete stage history do not agree.".into());
+    }
+    Ok(())
 }
 
 fn export(conn: &Connection) -> Result<Backup> {
@@ -218,11 +360,18 @@ fn export(conn: &Connection) -> Result<Backup> {
         .map_err(|e| e.to_string())?;
     let backup = Backup {
         app: "auction-helper".into(),
-        format_version: 1,
+        format_version: 2,
         settings: serde_json::from_str(&settings).map_err(|e| e.to_string())?,
         lots,
         inventory,
         audit_events,
+        lifecycle: Some(crate::lifecycle::states(conn)?),
+        stage_events: Some(
+            crate::lifecycle::history(conn)?
+                .into_iter()
+                .map(|entry| entry.event)
+                .collect(),
+        ),
     };
     validate(&backup)?;
     if serde_json::to_vec(&backup)
@@ -291,9 +440,10 @@ impl Store {
 
     pub(crate) fn preview_backup(&self, payload: Value) -> Result<Value> {
         let request: BackupRequest = serde_json::from_value(payload).map_err(|e| e.to_string())?;
-        let backup = parse(&request.text)?;
+        let parsed = parse(&request.text)?;
+        let backup = parsed.backup;
         Ok(
-            json!({"lotCount":backup.lots.len(),"inventoryCount":backup.inventory.len(),"soldCount":backup.inventory.iter().filter(|i| i.sold_at.is_some()).count(),"auditCount":backup.audit_events.len(),"availableCents":validate(&backup)?,"currentRevision":revision(&self.conn)?}),
+            json!({"lotCount":backup.lots.len(),"inventoryCount":backup.inventory.len(),"soldCount":backup.inventory.iter().filter(|i| i.sold_at.is_some()).count(),"auditCount":backup.audit_events.len(),"availableCents":validate(&backup)?,"currentRevision":revision(&self.conn)?,"sourceFormatVersion":parsed.source_version,"stagesResetToUnreviewed":parsed.source_version==1}),
         )
     }
 
@@ -302,7 +452,7 @@ impl Store {
         if !request.confirm_replace {
             return Err("Explicit workspace replacement confirmation is required.".into());
         }
-        let backup = parse(&request.text)?;
+        let backup = parse(&request.text)?.backup;
         let transaction = self
             .conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -324,7 +474,7 @@ impl Store {
             return Err("Audit revision limit reached.".into());
         }
         transaction
-            .execute_batch("DELETE FROM audit_events; DELETE FROM inventory; DELETE FROM lots;")
+            .execute_batch("DELETE FROM inventory_stage_events; DELETE FROM inventory_lifecycle; DELETE FROM audit_events; DELETE FROM inventory; DELETE FROM lots;")
             .map_err(|e| e.to_string())?;
         transaction
             .execute(
@@ -345,6 +495,25 @@ impl Store {
                     params![event.id, event.action, event.subject_id, event.created_at],
                 )
                 .map_err(|e| e.to_string())?;
+        }
+        for state in backup
+            .lifecycle
+            .as_ref()
+            .ok_or("Lifecycle states are missing.")?
+        {
+            transaction
+                .execute(
+                    "INSERT INTO inventory_lifecycle(inventory_id,stage) VALUES(?1,?2)",
+                    params![state.inventory_id, state.stage.as_str()],
+                )
+                .map_err(|error| error.to_string())?;
+        }
+        for event in backup
+            .stage_events
+            .as_ref()
+            .ok_or("Stage events are missing.")?
+        {
+            transaction.execute("INSERT INTO inventory_stage_events(audit_id,inventory_id,from_stage,to_stage) VALUES(?1,?2,?3,?4)", params![event.audit_id,event.inventory_id,event.from_stage.as_str(),event.to_stage.as_str()]).map_err(|error| error.to_string())?;
         }
         transaction.execute("INSERT INTO audit_events(id,action,subject_id,created_at) VALUES(?1,'restore_backup','workspace',?2)",params![next_revision,chrono::Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
         transaction.commit().map_err(|e| e.to_string())?;

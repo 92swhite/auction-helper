@@ -1,0 +1,134 @@
+{
+  "status": "passed",
+  "reviewSourceBase": "f0d1af64c76b1d2c83b5c8505cc2eab56764ccf2",
+  "productionCoreSha256": "3c24bbb63cc62e1e612e372d165ccb6a6af0baa0f7c666922be4c06cc9483dc1",
+  "instrumentedCoreSha256": "40d68ecb2f9774352198f557e9fc7a158eaf8840fb8c78063a746ae46eff3bb8",
+  "instrumentationPatchSha256": "7bf4fd261ce5693d916fe7b957ab419e9665af128a893a49c7e00046e0dcab1f",
+  "reviewSourceSha256": {
+    "Cargo.lock": "b8d148e3e65b2f889f0fc443a396802c4808ec98ed06abf55c0c9b4c5b9095f5",
+    "Cargo.toml": "283b1951c814f2e0646930800fc3128ddf8593c4918c0e3f790af4ec0f2ef5ad",
+    "backend/core/Cargo.toml": "551a03c0b8a814919769a304b0d5ecc4b1deb7fdcd52a6b72ae6378f11cb68fb",
+    "backend/core/src/backup.rs": "da495f36cb0993b70308abda68752d54462a819d38a05d617e72141a2ef770a3",
+    "backend/core/src/lib.rs": "f52fd8193cbbadec3730e3e914944c26d0d21395d796eabf014d32f7b45a2027",
+    "backend/core/src/lifecycle.rs": "22510074574de154e38599aec59205ff81e0c65287373762c6eba74f692dedc9",
+    "backend/core/src/main.rs": "dc587e204be0b7b968d732977575db8a31df691e99fb367231648e7c058bcd5c",
+    "backend/core/src/migrations.rs": "f8546af2f32e3f8bf7f089d371e529f5ad9f9f7ce4c3e3de95e704fcff045a81",
+    "backend/core/src/model.rs": "15fcbc6d2d76976ee78bd16e5a92ebf739d8be688cbfce92fd676223a5e74576",
+    "backend/core/src/snapshot_tests.rs": "535bdf383ead4a51f5d89e60fb7602f7ecd614e9a03d607019053374cd2bf1cf",
+    "backend/core/src/valuation.rs": "e4c4bcc146da7b2a3ee020174bc255af4005fa39966d930d42219ed81ba055f6",
+    "backend/core/tests/backup.rs": "6ac7ea40829fd0e4389b76c0a313783eb787195b44b5e7a6b803d4971cbbd1f4",
+    "backend/core/tests/fixtures/backup-v1-published-594275a.json": "547e1ff64b44978df24cc401f9113b64da00a9b8bed5338e52b7bb1245cc565e",
+    "backend/core/tests/fixtures/backup-v2-lifecycle.json": "ce63ffb3ea24c4cf25bb97c69a07c9f2709d2d288432f0fe24ab28cf4d90a80b",
+    "backend/core/tests/fixtures/workspace-v1-published-594275a.sql": "c71448038ec90cb743b497f80bf8d96dd32f8cb7d47cbdd2acd635e7594e3c16",
+    "backend/core/tests/inventory_notes.rs": "1925d6bde18abe0922edb033b2fd4daf35f55b80c8c60d70c6d42b35862bea51",
+    "backend/core/tests/lifecycle.rs": "3fdc8f90af509cdc36974b789480e5f30406ce9bdd34728d6258ffb4c3770d57",
+    "backend/core/tests/migrations.rs": "f79fe10c0241105bd2cf4c87a6e0919c9d7af1eebf60bd1fbe50ddedca1408ab",
+    "backend/core/tests/version_one_compatibility.rs": "61bbe5bdcbce1c619b610e67d27e39db097f62fe086e95569e3e1d3c826d338c",
+    "backend/core/tests/workflow.rs": "d8bca01f6dc1eb0eab78757a4ca55566d9208205330e94174767da25fefa98c2",
+    "backend/desktop/Cargo.toml": "4d89dd2f2b503f54ffb3e4379221032f974029a2b9c977c35b55dd9f2ab16fa5",
+    "backend/desktop/build.rs": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f",
+    "backend/desktop/capabilities/default.json": "5b5b35248c3ffcabd19ec8886a8e38889c5062203f05d1723fb5ef0c37194026",
+    "backend/desktop/src/main.rs": "6bbc1ae5736e01ffa737973c25cef924127ad060adb012a5583877e73c1c7b8e",
+    "backend/desktop/tauri.conf.json": "1147ea67f44c21109c4e594bccfb4fda33ca5a7e25a47992e31c56c0666d3a5c",
+    "migrations/001_initial.sql": "902f4e649d4df2ea3b28f4bc9f3e5f22614b9c71677666333317953896ffb999",
+    "migrations/002_inventory_lifecycle.sql": "da5533daf8d81c371614fdaa8f910fed7e69115c89643674a26dfd7e964a2fab"
+  },
+  "checks": [
+    {
+      "case": "upgrade_created",
+      "status": "passed",
+      "afterKillSchema": 1,
+      "verifiedCopyExpected": false
+    },
+    {
+      "case": "upgrade_recovery_ready",
+      "status": "passed",
+      "afterKillSchema": 1,
+      "verifiedCopyExpected": true
+    },
+    {
+      "case": "upgrade_written",
+      "status": "passed",
+      "afterKillSchema": 1,
+      "verifiedCopyExpected": true
+    },
+    {
+      "case": "upgrade_committed",
+      "status": "passed",
+      "afterKillSchema": 2,
+      "verifiedCopyExpected": true
+    },
+    {
+      "case": "restore_created",
+      "status": "passed",
+      "committedAfterKill": false,
+      "recoveryJSONComplete": false
+    },
+    {
+      "case": "restore_written",
+      "status": "passed",
+      "committedAfterKill": false,
+      "recoveryJSONComplete": true
+    },
+    {
+      "case": "restore_recovery_ready",
+      "status": "passed",
+      "committedAfterKill": false,
+      "recoveryJSONComplete": true
+    },
+    {
+      "case": "restore_deleted",
+      "status": "passed",
+      "committedAfterKill": false,
+      "recoveryJSONComplete": true
+    },
+    {
+      "case": "restore_history_written",
+      "status": "passed",
+      "committedAfterKill": false,
+      "recoveryJSONComplete": true
+    },
+    {
+      "case": "restore_committed",
+      "status": "passed",
+      "committedAfterKill": true,
+      "recoveryJSONComplete": true
+    },
+    {
+      "case": "stage_written",
+      "status": "passed",
+      "committedAfterKill": false
+    },
+    {
+      "case": "stage_committed",
+      "status": "passed",
+      "committedAfterKill": true
+    },
+    {
+      "case": "upgrade_file_sync",
+      "status": "passed",
+      "originalStatePreserved": true
+    },
+    {
+      "case": "upgrade_directory_sync",
+      "status": "passed",
+      "originalStatePreserved": true
+    },
+    {
+      "case": "restore_file_sync",
+      "status": "passed",
+      "originalStatePreserved": true
+    },
+    {
+      "case": "restore_directory_sync",
+      "status": "passed",
+      "originalStatePreserved": true
+    }
+  ],
+  "method": "Disposable source copy with explicit pause/I/O fault hooks; SIGKILL only owned child PIDs; actual SQLite files and recovery paths",
+  "limits": [
+    "Simulated process termination and error returns, not physical power loss or filesystem/controller durability",
+    "No owner database or unrelated process accessed",
+    "Instrumentation does not enter production source"
+  ]
+}

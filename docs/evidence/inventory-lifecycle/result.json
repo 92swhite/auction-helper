@@ -1,0 +1,17 @@
+{
+  "capturedAtUtc": "2026-10-29T01:24:18.145216+00:00",
+  "baseCommit": "95087d0d1424b1c515252b35e6eb30ad4f882a10",
+  "rustTests": 41,
+  "browserJourneys": 8,
+  "browserDurationSeconds": 17.4,
+  "nativeChecks": 22,
+  "sourceRuntimeHashesMatched": 45,
+  "packageInstalled": false,
+  "ownerDatabaseOpened": false,
+  "published": false,
+  "limits": [
+    "Windows/macOS and physical/human acceptance outstanding",
+    "No forced power-loss or independent human security review",
+    "Pre-safety v1 builds are not supported v2 readers"
+  ]
+}

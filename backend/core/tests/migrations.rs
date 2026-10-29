@@ -41,6 +41,32 @@ fn version_one_missing_settings_is_not_replaced_with_defaults() {
 }
 
 #[test]
+fn version_two_schema_comparison_preserves_case_sensitive_check_literals() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("mismatched-literals.db");
+    let connection = Connection::open(&path).unwrap();
+    connection
+        .execute_batch(include_str!("../../../migrations/001_initial.sql"))
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO settings VALUES(1,?1)",
+            [serde_json::to_string(&auction_core::model::Settings::default()).unwrap()],
+        )
+        .unwrap();
+    let incompatible = include_str!("../../../migrations/002_inventory_lifecycle.sql")
+        .replace("'listed'", "'LISTED'");
+    connection.execute_batch(&incompatible).unwrap();
+    drop(connection);
+    let before = std::fs::read(&path).unwrap();
+    assert!(
+        Store::open(&path).is_err(),
+        "Different case-sensitive stage CHECK literals are not the supported schema"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+#[test]
 fn populated_legacy_version_one_reopens_without_reseeding_or_dropping_extra_data() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("legacy.db");
@@ -71,7 +97,7 @@ fn populated_legacy_version_one_reopens_without_reseeding_or_dropping_extra_data
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         connection
@@ -127,7 +153,7 @@ fn concurrent_first_opens_initialize_one_complete_database() {
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         connection

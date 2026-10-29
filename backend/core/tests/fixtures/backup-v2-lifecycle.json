@@ -1,0 +1,316 @@
+{
+  "app": "auction-helper",
+  "auditEvents": [
+    {
+      "action": "settings",
+      "createdAt": "2026-10-28T23:45:35.488773276+00:00",
+      "id": 1,
+      "subjectId": "settings"
+    },
+    {
+      "action": "save_lot",
+      "createdAt": "2026-10-28T23:45:35.494351686+00:00",
+      "id": 2,
+      "subjectId": "6bc31244-516a-4ef6-985a-2e8c9ac45dd2"
+    },
+    {
+      "action": "save_lot",
+      "createdAt": "2026-10-28T23:45:35.501234404+00:00",
+      "id": 3,
+      "subjectId": "ff43a398-2344-45f0-9d2e-803851129845"
+    },
+    {
+      "action": "save_lot",
+      "createdAt": "2026-10-28T23:45:35.510602300+00:00",
+      "id": 4,
+      "subjectId": "60f4c547-11c9-4a27-a689-68f35fc368bb"
+    },
+    {
+      "action": "watch",
+      "createdAt": "2026-10-28T23:45:35.529269503+00:00",
+      "id": 5,
+      "subjectId": "60f4c547-11c9-4a27-a689-68f35fc368bb"
+    },
+    {
+      "action": "purchase",
+      "createdAt": "2026-10-28T23:45:35.538748280+00:00",
+      "id": 6,
+      "subjectId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e"
+    },
+    {
+      "action": "purchase",
+      "createdAt": "2026-10-28T23:45:35.550231560+00:00",
+      "id": 7,
+      "subjectId": "245c7e43-4298-4e2c-891c-732aa08052ce"
+    },
+    {
+      "action": "sell",
+      "createdAt": "2026-10-28T23:45:35.562088994+00:00",
+      "id": 8,
+      "subjectId": "245c7e43-4298-4e2c-891c-732aa08052ce"
+    },
+    {
+      "action": "restore_backup",
+      "createdAt": "2026-10-29T01:14:50.700116467+00:00",
+      "id": 9,
+      "subjectId": "workspace"
+    },
+    {
+      "action": "inventory_stage",
+      "createdAt": "2026-10-29T01:14:50.762666064+00:00",
+      "id": 10,
+      "subjectId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e"
+    },
+    {
+      "action": "inventory_stage",
+      "createdAt": "2026-10-29T01:14:50.772437184+00:00",
+      "id": 11,
+      "subjectId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e"
+    },
+    {
+      "action": "sell",
+      "createdAt": "2026-10-29T01:14:50.782290767+00:00",
+      "id": 12,
+      "subjectId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e"
+    }
+  ],
+  "formatVersion": 2,
+  "inventory": [
+    {
+      "acquisitionCents": 10000,
+      "id": "245c7e43-4298-4e2c-891c-732aa08052ce",
+      "lotId": "ff43a398-2344-45f0-9d2e-803851129845",
+      "purchasedAt": "2026-10-28T23:45:35.550231560+00:00",
+      "saleNetCents": -1000,
+      "soldAt": "2026-10-28T23:45:35.562088994+00:00",
+      "title": "Sold legacy loss fixture"
+    },
+    {
+      "acquisitionCents": 5000,
+      "id": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e",
+      "lotId": "6bc31244-516a-4ef6-985a-2e8c9ac45dd2",
+      "purchasedAt": "2026-10-28T23:45:35.538748280+00:00",
+      "saleNetCents": 9000,
+      "soldAt": "2026-10-29T01:14:50.782290767+00:00",
+      "title": "Held legacy fixture"
+    }
+  ],
+  "lifecycle": [
+    {
+      "inventoryId": "245c7e43-4298-4e2c-891c-732aa08052ce",
+      "stage": "unreviewed"
+    },
+    {
+      "inventoryId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e",
+      "stage": "testing"
+    }
+  ],
+  "lots": [
+    {
+      "createdAt": "2026-10-28T23:45:35.510602300+00:00",
+      "input": {
+        "bidCents": 1000,
+        "category": "Tools",
+        "comparables": [
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 30000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Included sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": false,
+            "priceCents": 90000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Excluded sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 100000,
+            "shippingCents": 1000,
+            "sold": false,
+            "soldOn": "2024-01-01",
+            "title": "Asking context",
+            "url": "https://example.com/compatibility-evidence"
+          }
+        ],
+        "condition": "Untested",
+        "costs": {
+          "fixedSellingCents": 50,
+          "inboundCents": 0,
+          "outboundCents": 1000,
+          "paymentBps": 0,
+          "premiumBps": 1300,
+          "prepCents": 1000,
+          "reserveBps": 500,
+          "sellingFeeBps": 1200,
+          "taxBps": 900,
+          "travelCents": 500
+        },
+        "endsAt": "2030-01-01T00:00:00Z",
+        "estimateCents": 25000,
+        "id": "60f4c547-11c9-4a27-a689-68f35fc368bb",
+        "location": "Synthetic area",
+        "notes": "Original café inspection\nPickup not yet verified.",
+        "source": "Community auction 🦆",
+        "title": "Watched legacy fixture",
+        "url": "https://example.com/compatibility-lot"
+      },
+      "updatedAt": "2026-10-28T23:45:35.510602300+00:00",
+      "watched": true
+    },
+    {
+      "createdAt": "2026-10-28T23:45:35.494351686+00:00",
+      "input": {
+        "bidCents": 1000,
+        "category": "Tools",
+        "comparables": [
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 30000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Included sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": false,
+            "priceCents": 90000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Excluded sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 100000,
+            "shippingCents": 1000,
+            "sold": false,
+            "soldOn": "2024-01-01",
+            "title": "Asking context",
+            "url": "https://example.com/compatibility-evidence"
+          }
+        ],
+        "condition": "Untested",
+        "costs": {
+          "fixedSellingCents": 50,
+          "inboundCents": 0,
+          "outboundCents": 1000,
+          "paymentBps": 0,
+          "premiumBps": 1300,
+          "prepCents": 1000,
+          "reserveBps": 500,
+          "sellingFeeBps": 1200,
+          "taxBps": 900,
+          "travelCents": 500
+        },
+        "endsAt": "2030-01-01T00:00:00Z",
+        "estimateCents": 25000,
+        "id": "6bc31244-516a-4ef6-985a-2e8c9ac45dd2",
+        "location": "Synthetic area",
+        "notes": "Original café inspection\nPickup not yet verified.",
+        "source": "Community auction 🦆",
+        "title": "Held legacy fixture",
+        "url": "https://example.com/compatibility-lot"
+      },
+      "updatedAt": "2026-10-28T23:45:35.494351686+00:00",
+      "watched": false
+    },
+    {
+      "createdAt": "2026-10-28T23:45:35.501234404+00:00",
+      "input": {
+        "bidCents": 1000,
+        "category": "Tools",
+        "comparables": [
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 30000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Included sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": false,
+            "priceCents": 90000,
+            "shippingCents": 1000,
+            "sold": true,
+            "soldOn": "2024-01-01",
+            "title": "Excluded sale",
+            "url": "https://example.com/compatibility-evidence"
+          },
+          {
+            "condition": "Tested working",
+            "included": true,
+            "priceCents": 100000,
+            "shippingCents": 1000,
+            "sold": false,
+            "soldOn": "2024-01-01",
+            "title": "Asking context",
+            "url": "https://example.com/compatibility-evidence"
+          }
+        ],
+        "condition": "Untested",
+        "costs": {
+          "fixedSellingCents": 50,
+          "inboundCents": 0,
+          "outboundCents": 1000,
+          "paymentBps": 0,
+          "premiumBps": 1300,
+          "prepCents": 1000,
+          "reserveBps": 500,
+          "sellingFeeBps": 1200,
+          "taxBps": 900,
+          "travelCents": 500
+        },
+        "endsAt": "2030-01-01T00:00:00Z",
+        "estimateCents": 25000,
+        "id": "ff43a398-2344-45f0-9d2e-803851129845",
+        "location": "Synthetic area",
+        "notes": "Original café inspection\nPickup not yet verified.",
+        "source": "Community auction 🦆",
+        "title": "Sold legacy loss fixture",
+        "url": "https://example.com/compatibility-lot"
+      },
+      "updatedAt": "2026-10-28T23:45:35.501234404+00:00",
+      "watched": false
+    }
+  ],
+  "settings": {
+    "capitalCents": 200000,
+    "lotCapCents": 35000,
+    "minProfitCents": 6500,
+    "minRoiBps": 4500
+  },
+  "stageEvents": [
+    {
+      "auditId": 10,
+      "fromStage": "unreviewed",
+      "inventoryId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e",
+      "toStage": "listed"
+    },
+    {
+      "auditId": 11,
+      "fromStage": "listed",
+      "inventoryId": "cd99f3d7-9cf3-4e36-acfc-58e9296bac0e",
+      "toStage": "testing"
+    }
+  ]
+}

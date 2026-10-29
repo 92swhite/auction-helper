@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "applicationSha256": "51081f9f1ca951c61db2a787f3a1e4ebbb6885d2e8a1b990d78ce36ebe29ef1a",
+  "checks": [
+    "Actual native cancel preserves records",
+    "Native notes save preserves concurrent lot edits and ledger values",
+    "Native stale refusal retains draft and refreshes latest notes on reopen",
+    "Fresh packaged process reopens the saved notes"
+  ],
+  "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; actual pointer and keyboard events; no backend mocks"
+}

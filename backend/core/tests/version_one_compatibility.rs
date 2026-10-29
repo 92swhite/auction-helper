@@ -10,6 +10,18 @@ fn records_equal(actual: &Value, expected: &Value) {
     }
 }
 
+fn mapped_version_two(mut expected: Value) -> Value {
+    expected["formatVersion"] = json!(2);
+    expected["lifecycle"] = expected["inventory"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| json!({"inventoryId":item["id"],"stage":"unreviewed"}))
+        .collect();
+    expected["stageEvents"] = json!([]);
+    expected
+}
+
 #[test]
 fn published_version_one_workspace_reopens_without_changing_existing_records() {
     let directory = tempfile::tempdir().unwrap();
@@ -19,7 +31,10 @@ fn published_version_one_workspace_reopens_without_changing_existing_records() {
     drop(connection);
     let expected: Value = serde_json::from_str(BACKUP).unwrap();
     let mut store = Store::open(&path).unwrap();
-    assert_eq!(store.dispatch("backup", Value::Null).unwrap(), expected);
+    assert_eq!(
+        store.dispatch("backup", Value::Null).unwrap(),
+        mapped_version_two(expected.clone())
+    );
     let snapshot = store.dispatch("snapshot", Value::Null).unwrap();
     assert_eq!(snapshot["availableCents"], 184000);
     assert_eq!(snapshot["settings"]["minProfitCents"], 6500);
@@ -41,7 +56,7 @@ fn published_version_one_workspace_reopens_without_changing_existing_records() {
 }
 
 #[test]
-fn published_version_one_backup_restores_and_note_edits_keep_its_contract() {
+fn published_version_one_backup_maps_to_v2_without_losing_financial_records_or_notes() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("restored.db");
     let expected: Value = serde_json::from_str(BACKUP).unwrap();
@@ -50,6 +65,8 @@ fn published_version_one_backup_restores_and_note_edits_keep_its_contract() {
         .dispatch("validate_backup", json!({"text": BACKUP}))
         .unwrap();
     assert_eq!(preview["availableCents"], 184000);
+    assert_eq!(preview["sourceFormatVersion"], 1);
+    assert_eq!(preview["stagesResetToUnreviewed"], true);
     store.dispatch("restore_backup", json!({"text": BACKUP, "expectedRevision":preview["currentRevision"],"confirmReplace":true})).unwrap();
     let restored = store.dispatch("backup", Value::Null).unwrap();
     records_equal(&restored, &expected);
@@ -72,7 +89,7 @@ fn published_version_one_backup_restores_and_note_edits_keep_its_contract() {
         .unwrap();
     store.dispatch("inventory_notes", json!({"id":item["id"],"expectedNotes":lot["input"]["notes"],"notes":"Inspected 🦆; pickup remains unverified."})).unwrap();
     let edited = store.dispatch("backup", Value::Null).unwrap();
-    assert_eq!(edited["formatVersion"], 1);
+    assert_eq!(edited["formatVersion"], 2);
     assert_eq!(edited["inventory"], expected["inventory"]);
     assert_eq!(edited["settings"], expected["settings"]);
     assert_eq!(
