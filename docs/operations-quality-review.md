@@ -63,3 +63,15 @@ device/human acceptance remain outstanding. Provider/account-specific grants,
 network adapter fixtures, automatic matching/recency decisions and notifications
 are not supplied by the source catalog. Inventory stages/listing drafts and
 audited ledger corrections/returns/extra expenses remain later roadmap slices.
+
+## Follow-up review and compatibility
+
+A separate risk review and published v1 cross-version check are recorded in
+[operations-risk-review.md](operations-risk-review.md) and
+[version-one-compatibility.md](version-one-compatibility.md). All 28 Rust tests
+and strict all-target core Clippy pass. Runtime source hashes still match the
+combined package above; these additions are tests, fixtures and documentation.
+
+The [bounded inventory-lifecycle plan](inventory-lifecycle-plan.md) remains
+unimplemented pending label/transition decisions and an explicit version-two
+backup/migration contract. No new business rules or conflicting branch were added.
