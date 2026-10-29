@@ -32,6 +32,10 @@ import { TransactionForm } from "./components/TransactionForm";
 import { SettingsView } from "./components/SettingsView";
 import { BackupRestore } from "./components/BackupRestore";
 import { InventoryNotesForm } from "./components/InventoryNotesForm";
+import {
+  InventoryStageForm,
+  stageLabels,
+} from "./components/InventoryStageForm";
 
 type Page = "Opportunities" | "Watchlist" | "Inventory" | "Settings";
 export default function App() {
@@ -67,7 +71,7 @@ export default function App() {
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      if (action === "inventory_notes") {
+      if (action === "inventory_notes" || action === "inventory_stage") {
         try {
           setData(await request<Snapshot>("snapshot"));
         } catch {
@@ -97,7 +101,7 @@ export default function App() {
       new Blob(
         [
           JSON.stringify(
-            { schemaVersion: 1, exportedAt: new Date().toISOString(), ...data },
+            { schemaVersion: 2, exportedAt: new Date().toISOString(), ...data },
             null,
             2,
           ),
@@ -250,6 +254,12 @@ export default function App() {
               <Check size={16} />
               {notice}
             </div>
+          )}
+          {data?.upgradeRecoveryPath && (
+            <p className="form-note recovery-note" role="status">
+              Workspace upgraded for inventory stages. Your complete version-one
+              recovery copy is saved at {data.upgradeRecoveryPath}
+            </p>
           )}
           {!data ? (
             <div className="empty panel">
@@ -586,8 +596,44 @@ export default function App() {
                                 <span
                                   className={`badge ${i.soldAt ? "green" : "muted"}`}
                                 >
-                                  {i.soldAt ? "Sold" : "Purchased"}
+                                  {i.soldAt
+                                    ? "Sold"
+                                    : stageLabels[
+                                        data.lifecycle.find(
+                                          (state) => state.inventoryId === i.id,
+                                        )!.stage
+                                      ]}
                                 </span>
+                                {i.soldAt && (
+                                  <small>
+                                    Last stage:{" "}
+                                    {
+                                      stageLabels[
+                                        data.lifecycle.find(
+                                          (state) => state.inventoryId === i.id,
+                                        )!.stage
+                                      ]
+                                    }
+                                  </small>
+                                )}
+                                <button
+                                  className="quiet"
+                                  aria-label={`Review stage for ${i.title}`}
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setError("");
+                                    setModal({
+                                      type: "inventory-stage",
+                                      item: i,
+                                      stage: data.lifecycle.find(
+                                        (state) => state.inventoryId === i.id,
+                                      )!.stage,
+                                      revision: data.revision,
+                                    });
+                                  }}
+                                >
+                                  Stage & history
+                                </button>
                               </td>
                               <td>{money(i.acquisitionCents)}</td>
                               <td>
@@ -653,19 +699,51 @@ export default function App() {
       {modal && (
         <ModalFrame
           title={
-            modal.type === "inventory-notes"
-              ? "Inventory notes"
-              : modal.type === "lot"
-                ? modal.lot.id
-                  ? "Edit auction & evidence"
-                  : "Add an auction"
-                : modal.type === "purchase"
-                  ? "Record an actual purchase"
-                  : "Record a completed sale"
+            modal.type === "inventory-stage"
+              ? "Inventory stage"
+              : modal.type === "inventory-notes"
+                ? "Inventory notes"
+                : modal.type === "lot"
+                  ? modal.lot.id
+                    ? "Edit auction & evidence"
+                    : "Add an auction"
+                  : modal.type === "purchase"
+                    ? "Record an actual purchase"
+                    : "Record a completed sale"
           }
           onClose={() => !busy && setModal(null)}
         >
-          {modal.type === "inventory-notes" ? (
+          {modal.type === "inventory-stage" ? (
+            <InventoryStageForm
+              title={modal.item.title}
+              initial={modal.stage}
+              sold={
+                !!data?.inventory.find((item) => item.id === modal.item.id)
+                  ?.soldAt
+              }
+              history={
+                data?.stageHistory.filter(
+                  (entry) => entry.inventoryId === modal.item.id,
+                ) ?? []
+              }
+              busy={busy}
+              onCancel={() => !busy && setModal(null)}
+              onSave={async (stage) => {
+                if (
+                  await mutate(
+                    "inventory_stage",
+                    {
+                      id: modal.item.id,
+                      stage,
+                      expectedRevision: modal.revision,
+                    },
+                    "Inventory stage saved.",
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === "inventory-notes" ? (
             <InventoryNotesForm
               item={modal.item}
               lot={modal.lot}

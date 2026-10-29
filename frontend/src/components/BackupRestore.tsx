@@ -146,6 +146,13 @@ export function BackupRestore({
             Available capital after restore:{" "}
             <strong>{money(pending.preview.availableCents)}</strong>
           </p>
+          {pending.preview.stagesResetToUnreviewed && (
+            <p className="form-note">
+              This version-one backup has no operational stages. All imported
+              items will begin Unreviewed, including sold items whose financial
+              Sold status is preserved.
+            </p>
+          )}
           <p>
             This replaces the current workspace. A complete copy of the current
             workspace will be saved locally first. Keep your downloaded backup

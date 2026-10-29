@@ -16,7 +16,11 @@ flowchart LR
 
 The core crate has no dependency on the desktop runtime. This makes financial logic and database workflows testable without a display server. Tauri holds a mutex-protected store in process. Browser development invokes a local CLI with fixed executable/path arguments and JSON on stdin; it does not use shell interpolation. It has an isolated database, loopback binding, JSON-only POST requests, origin validation, a request-size limit and a process timeout. It is not a production web server.
 
-Rusqlite with bundled SQLite keeps the initial persistence layer small. WAL, foreign keys, a busy timeout and immediate transactions protect financial mutations. Version 1 stores typed lot inputs and comparable provenance in a JSON payload, with relational inventory, settings and audit tables. This is a deliberate MVP simplification of the brief's larger normalized schema; split out observations and comparables when query and source-monitoring requirements justify it. The explicit runner initializes only an empty version-zero file, committing schema, settings and version together. Existing version-one definitions/settings are validated; unsupported or unrecognized databases are refused without repair or version reset. Migration 001 stays unchanged. Future upgrades require separate versioned steps and validation. See [local schema-safety evidence](schema-initialization-verification.md).
+Rusqlite with bundled SQLite keeps the initial persistence layer small. WAL, foreign keys, a busy timeout and immediate transactions protect financial mutations. Version 1 stores typed lot inputs and comparable provenance in a JSON payload, with relational inventory, settings and audit tables. This is a deliberate MVP simplification of the brief's larger normalized schema; split out observations and comparables when query and source-monitoring requirements justify it. The explicit runner initializes only an empty version-zero file, committing schema, settings and version together. Existing version-one definitions/settings are validated; unsupported or unrecognized databases are refused without repair or version reset. Migration 001 stays unchanged. The separate lifecycle slice adds migration 002 and a verified durable SQLite
+recovery copy before v1→v2. Version 2 adds relational current stages and audit-linked
+transition details; financial tables and migration 001 stay unchanged. Existing
+files receive a read-only version probe before writable open, then the transaction
+rechecks the version under its writer lock. See [local schema-safety evidence](schema-initialization-verification.md).
 
 ## Command contract
 
@@ -24,15 +28,16 @@ Tauri `request(action, payload)` and the development CLI dispatch the same opera
 
 | Action | Payload | Result |
 |---|---|---|
-| `snapshot` | null | Settings, lots with analysis, inventory, balances |
+| `snapshot` | null | Settings, lots with analysis, inventory, balances, stages/history, audit revision and first-session upgrade recovery path |
 | `analyze` | `LotInput` | Analysis without saving |
 | `save_lot` | `LotInput` (null ID creates; existing ID edits) | Snapshot |
 | `watch` | `{id, watched}` | Snapshot |
 | `settings` | `Settings` | Snapshot |
 | `purchase` | `{id: lotId, acquisitionCents}` | Snapshot |
 | `sell` | `{id: inventoryId, grossCents, expenseCents}` | Snapshot |
-| `backup` | null | Strict version-one backup of original records and audit history |
-| `validate_backup` | `{text}` | Incoming counts, derived available capital, current audit revision |
+| `inventory_stage` | `{id: inventoryId, stage, expectedRevision}` | Snapshot after explicit, audited stage correction; refuses stale or Sold items |
+| `backup` | null | Strict version-two backup of original records, stages and audit history |
+| `validate_backup` | `{text}` | Incoming counts, derived available capital, current audit revision and v1 stage-mapping disclosure |
 | `restore_backup` | `{text, expectedRevision, confirmReplace: true}` | `{snapshot, recoveryPath}` after recovery-file creation and atomic replacement |
 
 `open_url(url)` is a separate desktop command. It validates HTTP/S URLs, rejects embedded credentials and uses the OS browser. There is no bid-placement command and no marketplace credentials. Content is rendered by React without raw HTML insertion. Production CSP restricts scripts and connections to the packaged app/IPC; no remote scripts, fonts or images are needed.

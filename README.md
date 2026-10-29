@@ -10,6 +10,11 @@ evidence review. See [the integrated review and verification](docs/operations-qu
 for its exact scope, package evidence and dependency on the unmerged backup PR.
 Current publication and CI status are recorded on the operations PR.
 
+The separate local lifecycle branch adds manual inventory stages and complete
+correction history, with Sold precedence and a recovery-first database/backup
+version-two upgrade. See [lifecycle verification](docs/inventory-lifecycle-verification.md).
+This slice is not included in published operations PR2.
+
 ![Auction Helper with fictional demonstration data](docs/preview.png)
 
 ## Run
@@ -46,6 +51,7 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 - Deterministic cent-based cost breakdown, profit/ROI, scenario range and maximum hammer bid. Defaults: $1,000 capital, $250 landed cost per lot, $50 profit, 40% ROI.
 - Search, profit/ending-time sort, target filters, watch/unwatch and local countdowns. Prices are explicitly manual observations.
 - Purchase and sale recording with atomic capital accounting, duplicate protection and a local action audit trail.
+- Manual inventory stages from Unreviewed through Listed, backward corrections with history, and read-only last-stage history after a sale.
 - Editable buying criteria, readable JSON export, and SQLite persistence across restarts.
 - Dark UI with keyboard-accessible controls and dialogs; optional, labeled fictional examples.
 
@@ -55,7 +61,8 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 
 - Desktop: Tauri's per-user application data directory, `com.92swhite.auction-helper/auction-helper.db` (normally under `~/.local/share` on Linux).
 - Browser development: `.local/browser.db`, or the path in `AUCTION_HELPER_DB`.
-- Settings → Backup & restore downloads a complete, versioned local JSON backup (up to 1 MB), including lot evidence, watch state, inventory, criteria and audit history. Files are validated before a review/confirmation step. Restore is atomic, rejects stale previews and saves a private recovery copy beside the database first. See [backup and recovery](docs/backup-restore.md).
+- Settings → Backup & restore downloads a complete, versioned local JSON backup (up to 1 MB), including lot evidence, watch state, inventory, criteria, stages and audit history. Files are validated before a review/confirmation step. Restore is atomic, rejects stale previews and saves a private recovery copy beside the database first. See [backup and recovery](docs/backup-restore.md).
+- Existing v1 databases upgrade only after a complete, verified SQLite recovery copy is flushed beside the database. JSON exports use backup format v2; v1 imports explicitly map stages to Unreviewed.
 - The older **Export data** action remains a readable analysis snapshot, not a restorable backup. For workspaces exceeding the JSON limit, close the app/bridge before copying the complete SQLite database.
 - No credentials are collected or stored. The local database is not encrypted; it has the protection of the user's OS account.
 - Sources & data includes a read-only manual capability catalog with dated documentation references and explicit unverified access. Custom source labels remain available when editing imported lots. See [source review evidence](docs/source-registry-verification.md); this catalog does not enable integrations.
@@ -63,7 +70,7 @@ npm run test:e2e                   # Starts an isolated Rust/SQLite dev server
 
 ## Scope and limitations
 
-This is an analysis and bookkeeping foundation, not the entire roadmap. No scraping, live price feeds, automatic comparable retrieval, bid execution, notifications, background monitoring, listing publishing, image recognition or route optimization is implemented. Acquisition and sale records are currently single-stage and immutable; correction, returns, additional expense entries, listing drafts and richer inventory states are next milestones.
+This is an analysis and bookkeeping foundation, not the entire roadmap. No scraping, live price feeds, automatic comparable retrieval, bid execution, notifications, background monitoring, listing publishing, image recognition or route optimization is implemented. Acquisition and sale records remain immutable financial events; ledger correction, returns, additional expense entries and listing drafts remain future milestones. Manual operational stages do not change those financial records.
 
 Fees are **user-entered assumptions**, not current marketplace fee schedules. New lots start with zero fees and an illustrative 5% returns reserve; verify all terms before using an estimate. The sample dataset is fictional. ROI is calculated on landed capital including travel and preparation; there is no prediction that an item will sell within 60 days.
 

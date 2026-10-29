@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "safeVersionOneCommit": "95087d0d1424b1c515252b35e6eb30ad4f882a10",
+  "previousCoreSha256": "d238b7fa5208ba45a5bbf63111af5a33f97383f24a1a39c0bbf80ea7b67d3a6b",
+  "currentCoreSha256": "d98959bae649009fff64a625362ef8c3f7ee28e5b875483e0d1cd4a0ca169522",
+  "fixtureSha256": "ce63ffb3ea24c4cf25bb97c69a07c9f2709d2d288432f0fe24ab28cf4d90a80b",
+  "checks": [
+    "Actual safe-v1 workspace upgrades without changing financial records, notes or original audit history",
+    "Verified pre-upgrade SQLite snapshot includes committed WAL and extra user data; a copy reopens with actual safe-v1 binary",
+    "Backward stage correction and sale retain complete version-two history",
+    "Safe-v1 binary refuses schema/backup v2 without record or recovery writes",
+    "Current binary restores full v2 history and refuses future schema/backup v3",
+    "All three disposable workspace databases pass SQLite integrity and foreign-key checks"
+  ],
+  "fixture": "Explicit binaries and synthetic temporary databases only; no owner database, provider request or credentials"
+}

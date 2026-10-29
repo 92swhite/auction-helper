@@ -25,7 +25,7 @@ fn ledger(snapshot: &Value) -> Value {
 }
 
 #[test]
-fn inventory_notes_preserve_other_lot_edits_ledger_and_version_one_backup_round_trip() {
+fn inventory_notes_preserve_other_lot_edits_ledger_and_backup_round_trip() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("notes.db");
     let (mut store, lot_id, inventory_id) = purchased(&path);
@@ -42,7 +42,7 @@ fn inventory_notes_preserve_other_lot_edits_ledger_and_version_one_backup_round_
     assert_eq!(saved["lots"][0]["input"]["id"], lot_id);
     assert_eq!(ledger(&saved), ledger(&before));
     let backup = store.dispatch("backup", Value::Null).unwrap();
-    assert_eq!(backup["formatVersion"], 1);
+    assert_eq!(backup["formatVersion"], 2);
     assert_eq!(
         backup["auditEvents"].as_array().unwrap().last().unwrap()["action"],
         "save_lot"

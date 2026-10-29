@@ -1,10 +1,10 @@
 # Inventory lifecycle — bounded next slice for review
 
-Status: **planned, not implemented**. The operations candidate is separately
-authorized for publication; that approval does not authorize lifecycle rules or
-a format change. Merge decisions belong to the parent/user. This proposal is grounded in
-roadmap phase 2: pickup, testing, ready to list and listed. It does not add listing
-publication, valuation logic, costs, returns or financial corrections.
+Status: **approved and implemented on the separate local lifecycle branch** based
+on operations commit `95087d0`. Publication of this larger version-two slice is a
+separate decision; operations PR2 remains unchanged. The approved scope is manual
+stages and history, not listing publication, costs, returns or corrections to
+financial records. See [implementation and verification](inventory-lifecycle-verification.md).
 
 ## Smallest useful behavior
 
@@ -21,21 +21,16 @@ Neither choosing Listed nor Ready to list contacts a marketplace or certifies
 the item. No stage selection places a bid, records a sale, reserves capital,
 changes the ledger or claims that a physical action occurred automatically.
 
-## Two decisions to resolve before implementation
+## Approved semantics
 
-1. **Stage meaning and manual corrections.** Recommended: label the first stage
-   **Needs pickup**, followed by Testing, Ready to list and Listed. Let the user
-   explicitly choose any stage or correct it backward, retaining audit history;
-   do not force a sequence or infer completion from other data.
-2. **Unknown and sold inventory.** Recommended: existing items, v1 imports and new
-   purchases start **Unreviewed** until the user chooses a stage. A recorded sale
-   remains the authoritative Sold status; retain the last stage as read-only
-   history, without reopening a financial sale through the stage selector.
-
-The parent can present these as two concrete defaults to accept or change. They
-are recommendations, not implemented business rules. The version-two recovery
-and compatibility work below is an engineering gate, not an additional product
-question. Existing inspection notes remain usable while these are unresolved.
+- Stages are **Unreviewed, Needs pickup, Testing, Ready to list, Listed**.
+- Existing items, v1 imports and new purchases start Unreviewed. No elapsed time,
+  note, source link or purchase record infers physical progress.
+- Explicit Save/Cancel allows corrections in either direction, including back to
+  Unreviewed. A workspace audit revision rejects stale forms, including changes
+  away and back and intervening restores. Unrelated edits also require reopening.
+- Financial Sold is authoritative. It freezes the last operational stage and its
+  history as read-only; it cannot be reopened with a stage selection.
 
 ## Data and compatibility boundary
 
@@ -43,9 +38,9 @@ Structured stage data and an honest stage-change audit action do not fit the
 current strict v1 inventory/backup contract without a versioned change. Do not
 hide stages in free-text notes or reuse an unrelated financial audit action.
 
-Before implementing the slice, specify a database v2 migration and backup v2
-envelope, v1 import mapping, strict unknown-field/enum handling, original-history
-retention and a complete recovery path. Existing financial values and original
+The implemented database v2 migration and backup v2 envelope include v1 import
+mapping, strict unknown-field/enum handling, original-history retention and a
+complete recovery path. Existing financial values and original
 notes must survive exactly. A consistent, durable pre-upgrade SQLite recovery
 copy must succeed before any upgrade can commit; copying a bare live WAL database
 file is not an acceptable substitute. If space, copying or validation fails,
@@ -54,7 +49,9 @@ leave the original logical data/schema/version usable and retain evidence.
 The pre-schema-safety producer at `594275a` reexecutes its v1 marker on open. It
 is **not a safe v2 reader**. Publishing a safe v1 opener is a prerequisite to
 claiming a supported older-app refusal path; do not promise downgrade support to
-pre-safety builds. There is no v2 implementation or migration in this candidate.
+pre-safety builds. The operations safe-v1 build at `95087d0` refuses v2. Pre-safety builds remain
+unsupported for opening an upgraded file; the verified v1 recovery file is the
+route back to v1 data.
 
 ## Acceptance matrix
 

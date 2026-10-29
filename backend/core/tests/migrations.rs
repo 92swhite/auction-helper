@@ -71,7 +71,7 @@ fn populated_legacy_version_one_reopens_without_reseeding_or_dropping_extra_data
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         connection
@@ -127,7 +127,7 @@ fn concurrent_first_opens_initialize_one_complete_database() {
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         connection

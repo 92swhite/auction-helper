@@ -16,10 +16,11 @@ Acceptance: enter an auction and comparable, obtain a reproducible analysis, wat
 ## 2. Reliable operations and richer inventory
 
 - Reversible ledger corrections, additional expense entries, returns and disposal.
-- Inventory stages (pickup, testing, ready to list, listed) and user-reviewed listing drafts remain planned.
+- [x] Separate local lifecycle slice: Unreviewed, Needs pickup, Testing, Ready to list and Listed; manual backward corrections, complete audit-linked history and financial Sold precedence. See [verification](inventory-lifecycle-verification.md).
+- User-reviewed listing drafts remain planned.
 - [x] Inspection/lot notes are available from purchased and sold inventory on the local inventory-notes branch, with stale-save protection and unchanged ledger values.
 - [x] Validated JSON backup/restore with preview, atomic replacement, stale-review protection and automatic recovery copies.
-- [x] Explicit atomic initialization/version runner on the local schema-safety branch; the database stays at version 1. Unsupported or mismatched files are refused without repair.
+- [x] Explicit atomic initialization/version runner on the local schema-safety branch; the published operations candidate stays at version 1; the separate lifecycle branch upgrades to version 2 only after verified durable SQLite recovery. Unsupported or mismatched files are refused without repair.
 - [x] Consistent read transactions keep criteria, inventory and lots on one committed workspace view.
 - [x] Manual-source review catalog with dated references and explicit unverified access. Provider/account grants and fixture-based network adapter tests remain pending.
 - [x] Read-only comparable review with original dates, conditions and prices; new observations require deliberate Sold confirmation.

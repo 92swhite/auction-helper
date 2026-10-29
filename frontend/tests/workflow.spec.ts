@@ -108,7 +108,7 @@ test("backup download, cancel, stale review and atomic restore persist", async (
   const file = await readFile((await download.path())!);
   const saved = JSON.parse(file.toString("utf8"));
   expect(saved.app).toBe("auction-helper");
-  expect(saved.formatVersion).toBe(1);
+  expect(saved.formatVersion).toBe(2);
   expect(saved.auditEvents.length).toBeGreaterThan(0);
   const invoke = async (action: string, payload: unknown = null) => {
     const response = await page.request.post("/api/request", {
@@ -616,4 +616,202 @@ test("inventory inspection notes cancel, persist and refuse conflicting edits wi
     ),
   ).toBe(true);
   await page.screenshot({ path: info.outputPath("inventory-notes-phone.png") });
+});
+
+test("inventory stages save, cancel, correct backward and retain readable history", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const invoke = async (action: string, payload: unknown = null) => {
+    const response = await page.request.post("/api/request", {
+      data: { action, payload },
+    });
+    const result = await response.json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  const title = "Lifecycle progress fixture 🦆";
+  const saved = await invoke("save_lot", {
+    ...emptyLot(),
+    title,
+    url: "https://example.com/lifecycle",
+  });
+  const lot = saved.lots.find(
+    (entry: { input: { title: string } }) => entry.input.title === title,
+  );
+  const purchased = await invoke("purchase", {
+    id: lot.input.id,
+    acquisitionCents: 1000,
+  });
+  const item = purchased.inventory.find(
+    (entry: { lotId: string }) => entry.lotId === lot.input.id,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row).toContainText("Unreviewed");
+  const open = () =>
+    row
+      .getByRole("button", { name: `Review stage for ${title}`, exact: true })
+      .click();
+  const dialog = page.getByRole("dialog", { name: "Inventory stage" });
+  await open();
+  await dialog.getByLabel("Operational stage").selectOption("testing");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(
+    (await invoke("snapshot")).lifecycle.find(
+      (state: { inventoryId: string }) => state.inventoryId === item.id,
+    ).stage,
+  ).toBe("unreviewed");
+  for (const stage of [
+    "needs_pickup",
+    "testing",
+    "ready_to_list",
+    "listed",
+    "testing",
+  ]) {
+    await open();
+    await dialog.getByLabel("Operational stage").selectOption(stage);
+    await dialog
+      .getByRole("button", { name: "Save stage", exact: true })
+      .click();
+    await expect(dialog).not.toBeVisible();
+  }
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await expect(row).toContainText("Testing");
+  await open();
+  await expect(
+    dialog.getByRole("region", { name: "Stage history" }).getByRole("listitem"),
+  ).toHaveCount(5);
+  await expect(dialog).toContainText("Listed → Testing");
+  await page.screenshot({
+    path: testInfo.outputPath("lifecycle-history-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    dialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("lifecycle-history-phone.png"),
+    fullPage: true,
+  });
+  const current = await invoke("snapshot");
+  expect(current.inventory).toEqual(purchased.inventory);
+  for (const key of ["availableCents", "investedCents", "realizedProfitCents"])
+    expect(current[key]).toBe(purchased[key]);
+  const backup = await invoke("backup");
+  const preview = await invoke("validate_backup", {
+    text: JSON.stringify(backup),
+  });
+  const restored = await invoke("restore_backup", {
+    text: JSON.stringify(backup),
+    expectedRevision: preview.currentRevision,
+    confirmReplace: true,
+  });
+  expect(restored.snapshot.lifecycle).toEqual(current.lifecycle);
+  expect(restored.snapshot.stageHistory).toEqual(current.stageHistory);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Backup file", { exact: true }).setInputFiles({
+    name: "published-v1.json",
+    mimeType: "application/json",
+    buffer: await readFile(
+      "backend/core/tests/fixtures/backup-v1-published-594275a.json",
+    ),
+  });
+  const restore = page.getByRole("dialog", { name: "Restore workspace" });
+  await expect(restore).toContainText(
+    "All imported items will begin Unreviewed",
+  );
+  await restore.getByRole("button", { name: "Cancel", exact: true }).click();
+});
+
+test("stale stage review preserves its draft and a concurrent sale freezes stage history", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const invoke = async (action: string, payload: unknown = null) => {
+    const result = await (
+      await page.request.post("/api/request", { data: { action, payload } })
+    ).json();
+    expect(result.error).toBeUndefined();
+    return result.data;
+  };
+  const title = "Lifecycle stale-sale fixture";
+  const saved = await invoke("save_lot", {
+    ...emptyLot(),
+    title,
+    url: "https://example.com/lifecycle-sale",
+  });
+  const lot = saved.lots.find(
+    (entry: { input: { title: string } }) => entry.input.title === title,
+  );
+  const initial = await invoke("purchase", {
+    id: lot.input.id,
+    acquisitionCents: 1000,
+  });
+  const item = initial.inventory.find(
+    (entry: { lotId: string }) => entry.lotId === lot.input.id,
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: title });
+  const open = () =>
+    row
+      .getByRole("button", { name: `Review stage for ${title}`, exact: true })
+      .click();
+  const dialog = page.getByRole("dialog", { name: "Inventory stage" });
+  await open();
+  await dialog.getByLabel("Operational stage").selectOption("listed");
+  await invoke("inventory_stage", {
+    id: item.id,
+    stage: "testing",
+    expectedRevision: initial.revision,
+  });
+  await dialog.getByRole("button", { name: "Save stage", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("changed since");
+  await expect(dialog.getByLabel("Operational stage")).toHaveValue("listed");
+  await expect(dialog).toContainText("Unreviewed → Testing");
+  await page.screenshot({
+    path: testInfo.outputPath("lifecycle-stale-draft.png"),
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await open();
+  await expect(dialog.getByLabel("Operational stage")).toHaveValue("testing");
+  await dialog.getByLabel("Operational stage").selectOption("ready_to_list");
+  const sold = await invoke("sell", {
+    id: item.id,
+    grossCents: 5000,
+    expenseCents: 500,
+  });
+  await dialog.getByRole("button", { name: "Save stage", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Sold");
+  await expect(dialog.getByLabel("Operational stage")).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Save stage", exact: true }),
+  ).toHaveCount(0);
+  await expect(dialog).toContainText("history are read-only");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(row).toContainText("Sold");
+  await expect(row).toContainText("Last stage: Testing");
+  const current = await invoke("snapshot");
+  expect(current.stageHistory).toEqual(sold.stageHistory);
+  expect(current.inventory).toEqual(sold.inventory);
+  await page.reload();
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await open();
+  await expect(dialog).toContainText("history are read-only");
+  await page.screenshot({
+    path: testInfo.outputPath("lifecycle-sold-history.png"),
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
 });

@@ -90,6 +90,24 @@ export interface Snapshot {
   availableCents: number;
   investedCents: number;
   realizedProfitCents: number;
+  lifecycle: LifecycleState[];
+  stageHistory: StageHistoryEntry[];
+  revision: number;
+  upgradeRecoveryPath: string | null;
+}
+
+export type InventoryStage =
+  "unreviewed" | "needs_pickup" | "testing" | "ready_to_list" | "listed";
+export interface LifecycleState {
+  inventoryId: string;
+  stage: InventoryStage;
+}
+export interface StageHistoryEntry {
+  auditId: number;
+  inventoryId: string;
+  fromStage: InventoryStage;
+  toStage: InventoryStage;
+  createdAt: string;
 }
 
 export interface BackupPreview {
@@ -99,6 +117,8 @@ export interface BackupPreview {
   auditCount: number;
   availableCents: number;
   currentRevision: number;
+  sourceFormatVersion: number;
+  stagesResetToUnreviewed: boolean;
 }
 
 export interface RestoreResult {

@@ -118,6 +118,52 @@ pub struct InventoryItem {
     pub sold_at: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InventoryStage {
+    Unreviewed,
+    NeedsPickup,
+    Testing,
+    ReadyToList,
+    Listed,
+}
+
+impl InventoryStage {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unreviewed => "unreviewed",
+            Self::NeedsPickup => "needs_pickup",
+            Self::Testing => "testing",
+            Self::ReadyToList => "ready_to_list",
+            Self::Listed => "listed",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LifecycleState {
+    pub inventory_id: String,
+    pub stage: InventoryStage,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StageEvent {
+    pub audit_id: i64,
+    pub inventory_id: String,
+    pub from_stage: InventoryStage,
+    pub to_stage: InventoryStage,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StageHistoryEntry {
+    #[serde(flatten)]
+    pub event: StageEvent,
+    pub created_at: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
@@ -127,4 +173,8 @@ pub struct Snapshot {
     pub available_cents: i64,
     pub invested_cents: i64,
     pub realized_profit_cents: i64,
+    pub lifecycle: Vec<LifecycleState>,
+    pub stage_history: Vec<StageHistoryEntry>,
+    pub revision: i64,
+    pub upgrade_recovery_path: Option<String>,
 }

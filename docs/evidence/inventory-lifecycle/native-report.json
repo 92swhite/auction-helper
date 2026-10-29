@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "applicationSha256": "3001b8c110f3d68917b440f7ae39fef3902cbebcdb86f55893a36fb1608050a3",
+  "coreFixtureToolSha256": "d98959bae649009fff64a625362ef8c3f7ee28e5b875483e0d1cd4a0ca169522",
+  "checks": [
+    "Native evidence disclosure shows sale date, condition, price and shipping; the real estimate is $240 and data is unchanged",
+    "Native evidence disclosure closes without opening a provider page or changing the workspace",
+    "Native source disclosure shows dated eBay sold/browse distinction and unverified production access without mutating data",
+    "Native disclosure closes again; no reference is opened and the isolated workspace remains unchanged",
+    "Actual GTK file-open Cancel preserves the packaged workspace",
+    "Real packaged WebKit download exactly matches the Rust backup, including Unicode and audit history",
+    "GTK selection of a path containing spaces reaches review; review Cancel preserves newer work",
+    "Stale review refuses replacement; fresh confirmation restores exact records and a complete prior recovery file",
+    "Malformed file selected through GTK leaves the restored database unchanged",
+    "A fresh packaged process reopens restored records; SQLite integrity and foreign keys pass"
+  ],
+  "downloadName": "auction-helper-backup-2026-10-29.json",
+  "fixture": "Disposable XDG data/config/cache/runtime/Downloads, D-Bus and Xvfb; normal packaged WebKit/GTK, no backend mocks"
+}

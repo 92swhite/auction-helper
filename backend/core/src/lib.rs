@@ -1,4 +1,5 @@
 pub mod backup;
+mod lifecycle;
 mod migrations;
 pub mod model;
 #[cfg(test)]
@@ -7,7 +8,7 @@ pub mod valuation;
 
 use chrono::Utc;
 use model::*;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use valuation::*;
@@ -25,22 +26,31 @@ struct InventoryNotesRequest {
 pub struct Store {
     conn: Connection,
     path: PathBuf,
+    upgrade_recovery: Option<PathBuf>,
 }
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
+        if path.exists() {
+            // Refuse newer schemas before opening a writable connection. The
+            // migration transaction checks again after acquiring its lock.
+            let probe = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
+            migrations::check_supported(&probe)?;
+        }
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         let mut conn = Connection::open(path).map_err(|e| e.to_string())?;
         conn.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(|e| e.to_string())?;
-        migrations::initialize(&mut conn)?;
+        let upgrade_recovery = migrations::initialize(&mut conn, path)?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
         Ok(Self {
             conn,
             path: path.to_path_buf(),
+            upgrade_recovery,
         })
     }
 
@@ -120,6 +130,14 @@ impl Store {
                 analysis,
             });
         }
+        let lifecycle = lifecycle::states(&self.conn)?;
+        if lifecycle.len() != inventory.len()
+            || inventory
+                .iter()
+                .any(|item| !lifecycle.iter().any(|state| state.inventory_id == item.id))
+        {
+            return Err("Operational stage data does not match inventory. No missing stages were inferred or repaired.".into());
+        }
         Ok(Snapshot {
             settings,
             lots,
@@ -127,6 +145,13 @@ impl Store {
             available_cents: available,
             invested_cents: invested,
             realized_profit_cents: realized,
+            lifecycle,
+            stage_history: lifecycle::history(&self.conn)?,
+            revision: lifecycle::revision(&self.conn)?,
+            upgrade_recovery_path: self
+                .upgrade_recovery
+                .as_ref()
+                .map(|path| path.to_string_lossy().into_owned()),
         })
     }
 
@@ -180,6 +205,7 @@ impl Store {
             .unwrap_or_default();
         let subject: String;
         match action {
+            "inventory_stage" => return lifecycle::set_stage(&self.conn, payload, &now),
             "inventory_notes" => {
                 let request: InventoryNotesRequest =
                     serde_json::from_value(payload).map_err(|e| e.to_string())?;
@@ -276,6 +302,7 @@ impl Store {
                 subject = uuid::Uuid::new_v4().to_string();
                 // Recording an actual purchase is allowed above the recommendation cap.
                 self.conn.execute("INSERT INTO inventory(id,lot_id,title,acquisition_cents,purchased_at) VALUES(?1,?2,?3,?4,?5)", params![subject,id,lot.input.title,cost,now]).map_err(|e| e.to_string())?;
+                self.conn.execute("INSERT INTO inventory_lifecycle(inventory_id,stage) VALUES(?1,'unreviewed')", [&subject]).map_err(|error| error.to_string())?;
                 self.conn
                     .execute("UPDATE lots SET watched=0 WHERE id=?1", [id])
                     .map_err(|e| e.to_string())?;
