@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-28",
+  "baseCommit": "766dda2863d046cf81d6e0c8f3f1ed3efa0aa15e",
+  "baselineExitCode": 101,
+  "baselineMismatch": {
+    "inventory": "empty; capital $1000",
+    "lotNotes": "Committed after purchase"
+  },
+  "fixedRustTests": 26,
+  "strictAllTargetsClippyExitCode": 0,
+  "browserJourneys": 4,
+  "browserDurationSeconds": 12.9,
+  "nativeChecks": 12,
+  "nativePackageUnchangedAfterHarnessWaitCorrection": true
+}

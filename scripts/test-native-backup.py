@@ -21,6 +21,9 @@ parser.add_argument("application", type=Path)
 parser.add_argument("--core", required=True, type=Path)
 parser.add_argument("--ui-tool", required=True, type=Path)
 parser.add_argument("--output", required=True, type=Path)
+mode = parser.add_mutually_exclusive_group()
+mode.add_argument("--check-schema-refusal", action="store_true")
+mode.add_argument("--check-inventory-notes", action="store_true")
 parser.add_argument("--fixture", type=Path, help=argparse.SUPPRESS)
 args = parser.parse_args()
 for key in ["application", "core", "ui_tool", "output"]:
@@ -31,6 +34,8 @@ args.output.mkdir(parents=True, exist_ok=True)
 
 if args.fixture is None:
     (args.output / "native-report.json").unlink(missing_ok=True)
+    (args.output / "native-schema-report.json").unlink(missing_ok=True)
+    (args.output / "native-inventory-report.json").unlink(missing_ok=True)
     (args.output / "failure.txt").unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="auction-native-backup-", dir=args.output, ignore_cleanup_errors=True) as temporary:
         fixture = Path(temporary)
@@ -42,6 +47,10 @@ if args.fixture is None:
         command = ["dbus-run-session", "--", "xvfb-run", "-a", "-s", "-screen 0 1600x1200x24",
             "/usr/bin/python3", str(Path(__file__).resolve()), str(args.application), "--core", str(args.core),
             "--ui-tool", str(args.ui_tool), "--output", str(args.output), "--fixture", str(fixture)]
+        if args.check_schema_refusal:
+            command.append("--check-schema-refusal")
+        if args.check_inventory_notes:
+            command.append("--check-inventory-notes")
         process = subprocess.Popen(command, env=env, start_new_session=True)
         result = process.wait()
         try:
@@ -127,6 +136,36 @@ def click(name):
         str(bounds.y + bounds.height // 2), "click", "1"], check=True)
 
 
+def source_summary(name):
+    return next((n for n in nodes() if n.get_name().endswith(name + " Manual entry")
+        and n.get_state_set().contains(Atspi.StateType.VISIBLE)), None)
+
+
+def toggle_source(name):
+    wait(lambda: source_summary(name) is not None, "Missing source summary: " + name)
+    component = source_summary(name).get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    time.sleep(.15)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    assert bounds.width > 0 and bounds.height > 0 and bounds.x >= 0 and bounds.y >= 0
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2),
+        str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+
+
+def toggle_evidence():
+    def summary():
+        return next((n for n in nodes() if n.get_name() == "Review comparable evidence (2)"
+            and n.get_state_set().contains(Atspi.StateType.VISIBLE)), None)
+    wait(lambda: summary() is not None, "Missing native evidence disclosure")
+    component = summary().get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    time.sleep(.15)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    assert bounds.width > 0 and bounds.height > 0 and bounds.x >= 0 and bounds.y >= 0
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2),
+        str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+
+
 def chooser_open():
     return any(n.get_role_name() == "file chooser" and visible(n) for n in nodes())
 
@@ -152,6 +191,27 @@ def capture(name):
     (args.output / (name + "-text.txt")).write_text(text())
 
 
+def notes_control():
+    controls = [n for n in nodes() if visible(n) and n.get_state_set().contains(Atspi.StateType.EDITABLE)
+        and n.get_text_iface() is not None]
+    return controls[0] if len(controls) == 1 else None
+
+
+def type_notes(value):
+    wait(lambda: notes_control() is not None, "Native inspection notes field missing")
+    component = notes_control().get_component_iface()
+    component.scroll_to(Atspi.ScrollType.ANYWHERE)
+    bounds = component.get_extents(Atspi.CoordType.SCREEN)
+    subprocess.run([str(args.ui_tool), "mousemove", str(bounds.x + bounds.width // 2), str(bounds.y + bounds.height // 2), "click", "1"], check=True)
+    subprocess.run([str(args.ui_tool), "key", "--clearmodifiers", "ctrl+a"], check=True)
+    subprocess.run([str(args.ui_tool), "type", "--clearmodifiers", "--delay", "1", value], check=True)
+    wait(lambda: notes_control() is not None and notes_value() == value, "Native typed notes were not fully presented")
+
+
+def notes_value():
+    return Atspi.Text.get_text(notes_control().get_text_iface(), 0, -1)
+
+
 def start():
     global app
     app = subprocess.Popen([str(args.application)], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -172,7 +232,12 @@ def lot(title):
         "category": "Tools", "location": "Synthetic area", "endsAt": "2030-01-01T00:00:00Z", "condition": "Tested",
         "notes": "Native 🦆 café fixture", "bidCents": 1000, "estimateCents": 30000,
         "costs": {"premiumBps": 0, "taxBps": 0, "paymentBps": 0, "inboundCents": 0, "travelCents": 0, "prepCents": 0,
-            "sellingFeeBps": 0, "reserveBps": 500, "outboundCents": 0, "fixedSellingCents": 0}, "comparables": []}
+            "sellingFeeBps": 0, "reserveBps": 500, "outboundCents": 0, "fixedSellingCents": 0},
+        "comparables": [
+            {"title": "Sold native comparable", "url": "https://example.com/native-sold", "soldOn": "2001-01-01",
+                "priceCents": 23000, "shippingCents": 1000, "condition": "Tested working", "sold": True, "included": True},
+            {"title": "Asking native comparable", "url": "https://example.com/native-asking", "soldOn": "2001-01-02",
+                "priceCents": 500000, "shippingCents": 0, "condition": "Untested", "sold": False, "included": True}]}
 
 
 # Both the application and all D-Bus-activated services inherit these disposable paths.
@@ -187,9 +252,136 @@ core("sell", {"id": purchased["inventory"][0]["id"], "grossCents": 20000, "expen
 core("purchase", {"id": ids["Held native fixture"], "acquisitionCents": 5000})
 before = core("backup")
 
+if args.check_inventory_notes:
+    item = next(value for value in before["inventory"] if value["title"] == "Held native fixture")
+    lot_id = item["lotId"]
+    original = next(value for value in before["lots"] if value["input"]["id"] == lot_id)["input"]["notes"]
+    with (args.output / "app.txt").open("w") as log:
+        try:
+            start(); click("Inventory"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native notes editor missing")
+            assert notes_value() == original
+            type_notes("Cancelled native inspection draft")
+            click("Cancel")
+            assert core("backup") == before
+            click("Edit notes for Held native fixture")
+            type_notes("Inspected battery; pickup pending.")
+            current = next(value for value in core("snapshot")["lots"] if value["input"]["id"] == lot_id)["input"]
+            core("save_lot", dict(current, title="Concurrent native source title"))
+            click("Save notes")
+            # Save changes its label to Saving… before the IPC completes.
+            # Wait for the actual dialog to close, not for that label to disappear.
+            wait(lambda: find_button("Close dialog") is None, "Native note save did not close review")
+            saved = core("backup")
+            source = next(value for value in saved["lots"] if value["input"]["id"] == lot_id)["input"]
+            assert source["notes"] == "Inspected battery; pickup pending." and source["title"] == "Concurrent native source title", json.dumps({"actualNotes": source["notes"], "actualTitle": source["title"]})
+            assert saved["inventory"] == before["inventory"] and saved["settings"] == before["settings"]
+            click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native notes reopen missing")
+            assert notes_value() == source["notes"]
+            type_notes("Keep this unsaved native draft")
+            core("save_lot", dict(source, notes="Another session's newer native note"))
+            click("Save notes")
+            wait(lambda: "changed since you opened" in text(), "Native stale-note refusal missing")
+            assert notes_value() == "Keep this unsaved native draft"
+            click("Cancel"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Native latest-note review missing")
+            assert notes_value() == "Another session's newer native note"
+            capture("native-inventory-notes")
+            click("Cancel"); stop(); start(); click("Inventory"); click("Edit notes for Held native fixture")
+            wait(lambda: notes_control() is not None, "Restarted notes field missing")
+            assert notes_value() == "Another session's newer native note"
+            assert core("backup")["inventory"] == before["inventory"]
+            result = {"status": "passed", "applicationSha256": hashlib.sha256(args.application.read_bytes()).hexdigest(),
+                "checks": ["Actual native cancel preserves records", "Native notes save preserves concurrent lot edits and ledger values", "Native stale refusal retains draft and refreshes latest notes on reopen", "Fresh packaged process reopens the saved notes"],
+                "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; actual pointer and keyboard events; no backend mocks"}
+            (args.output / "native-inventory-report.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result, indent=2), flush=True)
+        except Exception as error:
+            (args.output / "failure.txt").write_text(repr(error) + "\n")
+            if app is not None:
+                try:
+                    capture("native-failure")
+                except Exception:
+                    pass
+            raise
+        finally:
+            stop()
+    raise SystemExit(0)
+
+if args.check_schema_refusal:
+    with sqlite3.connect(db) as connection:
+        connection.execute("CREATE TABLE future_notes(value TEXT)")
+        connection.execute("INSERT INTO future_notes VALUES('Synthetic future data')")
+        connection.execute("PRAGMA user_version=9")
+    original_bytes = db.read_bytes()
+    with (args.output / "app.txt").open("w") as log:
+        try:
+            start()
+            wait(lambda: "Unable to open workspace" in text() and "schema version 9" in text(), "Native schema refusal was not shown")
+            assert find_button("Dismiss error") is None
+            assert db.read_bytes() == original_bytes
+            add = next(n for n in nodes() if n.get_name() == "Add auction" and n.get_role_name() == "button")
+            assert not add.get_state_set().contains(Atspi.StateType.ENABLED)
+            capture("native-schema-refused")
+            with sqlite3.connect(db) as connection:
+                assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+                assert connection.execute("SELECT value FROM future_notes").fetchone()[0] == "Synthetic future data"
+                # Only the disposable fixture is corrected externally to exercise Retry.
+                connection.execute("PRAGMA user_version=1")
+            click("Retry")
+            wait(lambda: find_button("Add auction") is not None, "Retry did not reopen the compatible fixture")
+            click("Inventory")
+            wait(lambda: "Held native fixture" in text(), "Retry did not load retained inventory")
+            assert core("backup") == before
+            with sqlite3.connect(db) as connection:
+                assert connection.execute("SELECT value FROM future_notes").fetchone()[0] == "Synthetic future data"
+            capture("native-schema-retried")
+            result = {"status": "passed", "applicationSha256": hashlib.sha256(args.application.read_bytes()).hexdigest(),
+                "checks": ["Actual native UI shows unsupported-version refusal without changing database bytes or future data", "Retry reopens an externally corrected test fixture and preserves all original records"],
+                "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; normal packaged launch; no backend mock"}
+            (args.output / "native-schema-report.json").write_text(json.dumps(result, indent=2) + "\n")
+            print(json.dumps(result, indent=2), flush=True)
+        except Exception as error:
+            (args.output / "failure.txt").write_text(repr(error) + "\n")
+            if app is not None:
+                try:
+                    capture("native-failure")
+                except Exception:
+                    pass
+            raise
+        finally:
+            stop()
+    raise SystemExit(0)
+
 with (args.output / "app.txt").open("w") as log:
     try:
-        start(); click("Settings")
+        start()
+        toggle_evidence()
+        wait(lambda: find_button("Open evidence for comparable 1") is not None, "Native evidence did not expand")
+        find_button("Open evidence for comparable 1").get_component_iface().scroll_to(Atspi.ScrollType.ANYWHERE)
+        wait(lambda: "Sold · used in estimate" in text() and "2001-01-01" in text(), "Native evidence provenance missing")
+        assert "Tested working" in text() and core("snapshot")["lots"][0]["analysis"]["saleCents"] == 24000
+        assert core("backup") == before
+        capture("native-evidence-review")
+        checks.append("Native evidence disclosure shows sale date, condition, price and shipping; the real estimate is $240 and data is unchanged")
+        toggle_evidence()
+        wait(lambda: find_button("Open evidence for comparable 1") is None, "Native evidence did not collapse")
+        assert core("backup") == before
+        checks.append("Native evidence disclosure closes without opening a provider page or changing the workspace")
+        click("Settings")
+        toggle_source("eBay comparable evidence")
+        wait(lambda: find_button("eBay Browse API") is not None, "Native source references did not expand")
+        find_button("eBay Browse API").get_component_iface().scroll_to(Atspi.ScrollType.ANYWHERE)
+        wait(lambda: "limited release" in text() and "2026-10-28" in text(), "Native source review text/date missing")
+        assert "Browse results must not be treated as completed sales" in text()
+        assert core("backup") == before
+        capture("native-source-registry")
+        checks.append("Native source disclosure shows dated eBay sold/browse distinction and unverified production access without mutating data")
+        toggle_source("eBay comparable evidence")
+        wait(lambda: find_button("eBay Browse API") is None, "Native source disclosure did not collapse")
+        assert core("backup") == before
+        checks.append("Native disclosure closes again; no reference is opened and the isolated workspace remains unchanged")
         choose()
         assert core("backup") == before
         checks.append("Actual GTK file-open Cancel preserves the packaged workspace")

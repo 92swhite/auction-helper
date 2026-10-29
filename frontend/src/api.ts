@@ -3,7 +3,13 @@ export async function request<T>(
   action: string,
   payload: unknown = null,
 ): Promise<T> {
-  if (isTauri()) return invoke<T>("request", { action, payload });
+  if (isTauri()) {
+    try {
+      return await invoke<T>("request", { action, payload });
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  }
   const response = await fetch("/api/request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowDownToLine, Check } from "lucide-react";
 import type { Settings } from "../../../schemas/domain";
 import { Amount } from "./FormControls";
+import { SourceRegistry } from "./SourceRegistry";
 
 export function SettingsView({
   settings,
@@ -61,22 +62,7 @@ export function SettingsView({
           No accounts or API keys are required. All source integrations are
           manual in this milestone.
         </p>
-        {[
-          "Dickensheet",
-          "PublicSurplus",
-          "GovDeals",
-          "eBay sold evidence",
-          "Other resale evidence",
-        ].map((s) => (
-          <div className="source-row" key={s}>
-            <span>{s}</span>
-            <span className="badge muted">Manual entry</span>
-          </div>
-        ))}
-        <p className="form-note">
-          No scraping, automatic price refresh, notifications, or marketplace
-          publishing is enabled.
-        </p>
+        <SourceRegistry />
         <button onClick={onExport}>
           <ArrowDownToLine size={16} /> Export workspace as JSON
         </button>

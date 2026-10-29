@@ -1,0 +1,12 @@
+{
+  "producerCommit": "594275a366758ac1055984002cbf5a8a17d62e6e",
+  "reviewedCandidate": "57082af17426d525fb1889947ab07145df11813a",
+  "fixtureSha256": {
+    "backend/core/tests/fixtures/backup-v1-published-594275a.json": "547e1ff64b44978df24cc401f9113b64da00a9b8bed5338e52b7bb1245cc565e",
+    "backend/core/tests/fixtures/workspace-v1-published-594275a.sql": "c71448038ec90cb743b497f80bf8d96dd32f8cb7d47cbdd2acd635e7594e3c16"
+  },
+  "producerArchiveSha256": "0020fb7df415da847ebcc03b73812c0f9ff64ae649542d673868c0cd6cc395bc",
+  "rustTestsPassed": 28,
+  "runtimeSourcesChanged": false,
+  "strictCoreAllTargetsClippyExitCode": 0
+}

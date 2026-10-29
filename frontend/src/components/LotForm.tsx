@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Plus, X } from "lucide-react";
 import type { Comparable, Costs, LotInput } from "../../../schemas/domain";
 import { Field, Amount } from "./FormControls";
+import { auctionSourceOptions } from "../sources";
 
 export function LotForm({
   initial,
@@ -107,15 +108,7 @@ export function LotForm({
               value={lot.source}
               onChange={(e) => set("source", e.target.value)}
             >
-              {[
-                "Manual",
-                "Dickensheet",
-                "PublicSurplus",
-                "GovDeals",
-                "HiBid",
-                "Other",
-                ...(lot.source.startsWith("Demo") ? [lot.source] : []),
-              ].map((s) => (
+              {auctionSourceOptions(lot.source).map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -216,8 +209,8 @@ export function LotForm({
         <p className="form-note">
           Only sales marked “Sold” and “Include” determine resale value. The
           model uses their median price + shipping. Verify model, condition,
-          sale date and final price; active listings are retained as context
-          only.
+          sale date and final price. New observations start as Asking until you
+          confirm a completed sale; asking prices are retained as context only.
         </p>
         {lot.comparables.map((c, i) => (
           <div className="comp-card" key={i}>
@@ -310,7 +303,7 @@ export function LotForm({
                 priceCents: 0,
                 shippingCents: 0,
                 condition: "",
-                sold: true,
+                sold: false,
                 included: true,
               },
             ])

@@ -1,0 +1,11 @@
+{
+  "packageSha256": "a87eabac6ac5288b4ad6ee3db508438689917f19ba2ffd24d686289f2dd048b5",
+  "applicationSha256": "f9a44ae1453dc3310778152306650385eef5f01973f2852e9ead4507e916ad30",
+  "sources": {
+    "backend/core/src/lib.rs": "f31000585fc7ee9134a936cf323f13a709a7fb72965ac81fb67a286201650cc9",
+    "backend/core/src/migrations.rs": "9d733fdd322ee2cd888af6c7e69204457d48103bc7ad8564f2087e00d6e9f95d",
+    "backend/desktop/src/main.rs": "6bbc1ae5736e01ffa737973c25cef924127ad060adb012a5583877e73c1c7b8e",
+    "frontend/src/App.tsx": "2ef15c367673d3b7db6d46c6131f31a1c10d593961b237ee54474be67ed62ca4",
+    "frontend/src/api.ts": "46e4f3a5a2af9af91e47dbae300924683b6872c1190e70dc91c37829d72712df"
+  }
+}

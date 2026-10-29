@@ -1,5 +1,8 @@
 pub mod backup;
+mod migrations;
 pub mod model;
+#[cfg(test)]
+mod snapshot_tests;
 pub mod valuation;
 
 use chrono::Utc;
@@ -11,6 +14,14 @@ use valuation::*;
 
 pub type Result<T> = std::result::Result<T, String>;
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InventoryNotesRequest {
+    id: String,
+    expected_notes: String,
+    notes: String,
+}
+
 pub struct Store {
     conn: Connection,
     path: PathBuf,
@@ -21,18 +32,12 @@ impl Store {
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let conn = Connection::open(path).map_err(|e| e.to_string())?;
+        let mut conn = Connection::open(path).map_err(|e| e.to_string())?;
         conn.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(|e| e.to_string())?;
+        migrations::initialize(&mut conn)?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| e.to_string())?;
-        conn.execute_batch(include_str!("../../../migrations/001_initial.sql"))
-            .map_err(|e| e.to_string())?;
-        conn.execute(
-            "INSERT OR IGNORE INTO settings VALUES (1, ?1)",
-            [serde_json::to_string(&Settings::default()).unwrap()],
-        )
-        .map_err(|e| e.to_string())?;
         Ok(Self {
             conn,
             path: path.to_path_buf(),
@@ -40,6 +45,21 @@ impl Store {
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
+        // Keep settings, inventory and lots on one committed SQLite read view.
+        // Purchase checks already run inside the caller's IMMEDIATE transaction.
+        if !self.conn.is_autocommit() {
+            return self.read_snapshot();
+        }
+        let transaction = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
+        let snapshot = self.read_snapshot()?;
+        transaction.commit().map_err(|e| e.to_string())?;
+        Ok(snapshot)
+    }
+
+    fn read_snapshot(&self) -> Result<Snapshot> {
         let raw: String = self
             .conn
             .query_row("SELECT payload FROM settings WHERE id=1", [], |r| r.get(0))
@@ -160,6 +180,32 @@ impl Store {
             .unwrap_or_default();
         let subject: String;
         match action {
+            "inventory_notes" => {
+                let request: InventoryNotesRequest =
+                    serde_json::from_value(payload).map_err(|e| e.to_string())?;
+                let row: Option<(String, String)> = self.conn.query_row(
+                    "SELECT l.id,l.payload FROM inventory i JOIN lots l ON l.id=i.lot_id WHERE i.id=?1",
+                    [&request.id], |row| Ok((row.get(0)?,row.get(1)?)),
+                ).optional().map_err(|e| e.to_string())?;
+                let (lot_id, raw) = row.ok_or("Inventory item or linked lot no longer exists.")?;
+                let mut lot: LotInput = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+                if lot.notes != request.expected_notes {
+                    return Err("Inventory notes changed since you opened them. Keep your draft, then reopen to review the latest notes.".into());
+                }
+                lot.notes = request.notes;
+                validate_lot(&lot)?;
+                self.conn
+                    .execute(
+                        "UPDATE lots SET payload=?1,updated_at=?2 WHERE id=?3",
+                        params![
+                            serde_json::to_string(&lot).map_err(|e| e.to_string())?,
+                            now,
+                            lot_id
+                        ],
+                    )
+                    .map_err(|e| e.to_string())?;
+                subject = lot_id;
+            }
             "save_lot" => {
                 let mut lot: LotInput =
                     serde_json::from_value(payload).map_err(|e| e.to_string())?;
@@ -253,7 +299,16 @@ impl Store {
         self.conn
             .execute(
                 "INSERT INTO audit_events(action,subject_id,created_at) VALUES(?1,?2,?3)",
-                params![action, subject, now],
+                // Notes use the existing v1 lot-update audit vocabulary.
+                params![
+                    if action == "inventory_notes" {
+                        "save_lot"
+                    } else {
+                        action
+                    },
+                    subject,
+                    now
+                ],
             )
             .map_err(|e| e.to_string())?;
         Ok(())

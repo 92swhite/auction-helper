@@ -35,6 +35,7 @@ The current hammer price is an observation, not a bid increment or guaranteed wi
 ## Evidence and scenarios
 
 - Included, user-verified sold comparables contribute `sale_price + buyer_paid_shipping` to the median. An even-sized median rounds down to a cent.
+- New comparable forms start as Asking and require the user's deliberate Sold selection before contributing. Existing observations keep their stored classification.
 - Active asking prices and excluded observations never affect the estimate. No automatic verification, condition normalization, recency weighting, matching or outlier filtering is claimed.
 - Without eligible sales, the user's manual estimate is used and explicitly labeled.
 - The profit range uses the lowest/highest included sale. Without sales, it uses ±20% of the manual estimate. This is a sensitivity range, not a statistical confidence interval.

@@ -1,0 +1,14 @@
+{
+  "packageSha256": "a4325854d7cd89a467a248ea9bb3a4df5b25773fe3b258119f1d88c39c02cb39",
+  "applicationSha256": "d3b6828eaaea23f3ece66edde61b7e2e96d2368ab273dccb2f4251d432e4c328",
+  "sources": {
+    "backend/core/src/lib.rs": "d3368a06f0c2737736b864755f73001782176153481cde869402400f2967b4ee",
+    "backend/core/src/migrations.rs": "9d733fdd322ee2cd888af6c7e69204457d48103bc7ad8564f2087e00d6e9f95d",
+    "backend/desktop/src/main.rs": "6bbc1ae5736e01ffa737973c25cef924127ad060adb012a5583877e73c1c7b8e",
+    "frontend/src/App.tsx": "17940ab10fdf0f20ec6abfcfb66ecda1c754543b8b00e6ac74a2693419c5cc9d",
+    "frontend/src/api.ts": "46e4f3a5a2af9af91e47dbae300924683b6872c1190e70dc91c37829d72712df",
+    "frontend/src/components/InventoryNotesForm.tsx": "05900c1846a299e6f2b783e0f33831f82ef9f6f9b2aa894836a76bcb961f8d39",
+    "frontend/src/components/TransactionForm.tsx": "1d3a8e9e1c29cc6fb960311b8b395f780c513a2efe4e32c353ab04f4a3b72cbb",
+    "frontend/src/types.ts": "4200fb03ab60317c269149446ebdce6ac5a8d5493ed84e86a79d18ec4811458d"
+  }
+}

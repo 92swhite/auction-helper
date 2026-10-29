@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "applicationSha256": "d68d0c2126ce635a534e1a73a21aa7f8118e910ffca8284bd1283cfdbb684f31",
+  "checks": [
+    "Actual native UI shows unsupported-version refusal without changing database bytes or future data",
+    "Retry reopens an externally corrected test fixture and preserves all original records"
+  ],
+  "fixture": "Disposable SQLite/XDG/Xvfb/D-Bus; normal packaged launch; no backend mock"
+}

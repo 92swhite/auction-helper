@@ -31,6 +31,7 @@ import { LotForm } from "./components/LotForm";
 import { TransactionForm } from "./components/TransactionForm";
 import { SettingsView } from "./components/SettingsView";
 import { BackupRestore } from "./components/BackupRestore";
+import { InventoryNotesForm } from "./components/InventoryNotesForm";
 
 type Page = "Opportunities" | "Watchlist" | "Inventory" | "Settings";
 export default function App() {
@@ -66,6 +67,13 @@ export default function App() {
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      if (action === "inventory_notes") {
+        try {
+          setData(await request<Snapshot>("snapshot"));
+        } catch {
+          /* Keep the original save error and draft. */
+        }
+      }
       return false;
     } finally {
       setBusy(false);
@@ -230,9 +238,11 @@ export default function App() {
           {error && (
             <div className="error" role="alert">
               {error}
-              <button aria-label="Dismiss error" onClick={() => setError("")}>
-                <X size={16} />
-              </button>
+              {data && (
+                <button aria-label="Dismiss error" onClick={() => setError("")}>
+                  <X size={16} />
+                </button>
+              )}
             </div>
           )}
           {notice && (
@@ -247,7 +257,11 @@ export default function App() {
               <h2>
                 {error ? "Unable to open workspace" : "Opening your workspace…"}
               </h2>
-              <p>Your local database will be ready in a moment.</p>
+              <p>
+                {error
+                  ? "Your workspace is unavailable. Review the error above before retrying."
+                  : "Your local database will be ready in a moment."}
+              </p>
               {error && (
                 <button onClick={() => window.location.reload()}>Retry</button>
               )}
@@ -543,6 +557,30 @@ export default function App() {
                                 <small>
                                   {new Date(i.purchasedAt).toLocaleDateString()}
                                 </small>
+                                <button
+                                  className="quiet"
+                                  aria-label={`Edit notes for ${i.title}`}
+                                  disabled={busy}
+                                  onClick={() => {
+                                    const lot = data.lots.find(
+                                      (value) => value.input.id === i.lotId,
+                                    );
+                                    if (!lot) {
+                                      setError(
+                                        "The linked auction could not be found.",
+                                      );
+                                      return;
+                                    }
+                                    setError("");
+                                    setModal({
+                                      type: "inventory-notes",
+                                      item: i,
+                                      lot,
+                                    });
+                                  }}
+                                >
+                                  Inspection notes
+                                </button>
                               </td>
                               <td>
                                 <span
@@ -615,17 +653,36 @@ export default function App() {
       {modal && (
         <ModalFrame
           title={
-            modal.type === "lot"
-              ? modal.lot.id
-                ? "Edit auction & evidence"
-                : "Add an auction"
-              : modal.type === "purchase"
-                ? "Record an actual purchase"
-                : "Record a completed sale"
+            modal.type === "inventory-notes"
+              ? "Inventory notes"
+              : modal.type === "lot"
+                ? modal.lot.id
+                  ? "Edit auction & evidence"
+                  : "Add an auction"
+                : modal.type === "purchase"
+                  ? "Record an actual purchase"
+                  : "Record a completed sale"
           }
           onClose={() => !busy && setModal(null)}
         >
-          {modal.type === "lot" ? (
+          {modal.type === "inventory-notes" ? (
+            <InventoryNotesForm
+              item={modal.item}
+              lot={modal.lot}
+              busy={busy}
+              onCancel={() => !busy && setModal(null)}
+              onSave={async (payload) => {
+                if (
+                  await mutate(
+                    "inventory_notes",
+                    payload,
+                    "Inventory notes saved.",
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === "lot" ? (
             <LotForm
               initial={modal.lot}
               busy={busy}
